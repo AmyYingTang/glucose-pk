@@ -1,3 +1,17 @@
-flask>=3.0.0
-pydexcom>=0.3.0
+# Flask 核心
+flask>=2.0.0
 python-dotenv>=1.0.0
+gunicorn>=21.0.0
+
+# Dexcom API
+pydexcom>=0.2.0
+
+# Passkey 认证 (WebAuthn)
+py_webauthn>=2.0.0
+flask-login>=0.6.0
+
+# 密码加密
+cryptography>=41.0.0
+
+# 可选：系统 Keyring 存储
+keyring>=24.0.0
