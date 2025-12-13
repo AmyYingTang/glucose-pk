@@ -188,24 +188,39 @@
                 #3AAFCF 50px,
                 #5AB9D3 100px
             );
-            animation: flow 4s linear infinite;
+            animation: flow 2s linear infinite;
         }
         
         .lane.slow .river-bg {
-            animation-duration: 8s;
-        }
-        
-        .lane.fast .river-bg {
-            animation-duration: 2s;
+            /* 高血糖：流得慢 */
+            animation-duration: 4s;
+            background: repeating-linear-gradient(
+                90deg,
+                #E8B86A 0px,
+                #D4A44A 50px,
+                #E8B86A 100px
+            );
         }
         
         .lane.danger .river-bg {
-            animation-duration: 1s;
+            /* 危险高血糖：流得很慢，红色 */
+            animation-duration: 6s;
             background: repeating-linear-gradient(
                 90deg,
                 #E88A5A 0px,
                 #D4734A 50px,
                 #E88A5A 100px
+            );
+        }
+        
+        .lane.low .river-bg {
+            /* 低血糖：流得慢，紫色 */
+            animation-duration: 4s;
+            background: repeating-linear-gradient(
+                90deg,
+                #8A7ABF 0px,
+                #7A6AAF 50px,
+                #8A7ABF 100px
             );
         }
         
@@ -228,19 +243,19 @@
                 rgba(255,255,255,0.2) 48px,
                 rgba(255,255,255,0.2) 52px
             );
-            animation: flow 4s linear infinite;
+            animation: flow 2s linear infinite;
         }
         
         .lane.slow .water-lines {
-            animation-duration: 8s;
-        }
-        
-        .lane.fast .water-lines {
-            animation-duration: 2s;
+            animation-duration: 4s;
         }
         
         .lane.danger .water-lines {
-            animation-duration: 1s;
+            animation-duration: 6s;
+        }
+        
+        .lane.low .water-lines {
+            animation-duration: 4s;
         }
         
         /* 河岸 */
@@ -874,12 +889,11 @@
         
         function renderLeaderboard() {
             const list = document.getElementById('leaderboard-list');
-            if (!list || players.length === 0) return;
             
             const sorted = players.map(p => ({
                 ...p,
-                score: gameState[p.id]?.score || 0,
-                distance: gameState[p.id]?.distance || 0
+                score: gameState[p.id].score,
+                distance: gameState[p.id].distance
             })).sort((a, b) => b.score - a.score || b.distance - a.distance);
             
             list.innerHTML = sorted.map((p, i) => `
@@ -932,14 +946,19 @@
         }
         
         function getSpeed(glucose) {
+            // 血糖正常范围内速度最快，偏离正常范围越多越慢
             if (glucose < OPTIMAL_LOW) {
+                // 低血糖：越低越慢 (1-2)
                 return 1 + (glucose / OPTIMAL_LOW) * 1;
             } else if (glucose <= OPTIMAL_HIGH) {
+                // 正常范围：最快 (3)
                 return 3;
             } else if (glucose <= 11.1) {
-                return 3 + (glucose - OPTIMAL_HIGH) / 3.3 * 2;
+                // 偏高：逐渐变慢 (3 → 1.5)
+                return 3 - (glucose - OPTIMAL_HIGH) / 3.3 * 1.5;
             } else {
-                return 5 + Math.min(2, (glucose - 11.1) / 5);
+                // 危险高：很慢 (1.5 → 0.5)
+                return Math.max(0.5, 1.5 - (glucose - 11.1) / 10);
             }
         }
         
@@ -963,14 +982,21 @@
             
             const lane = document.getElementById(`lane-${playerId}`);
             if (lane) {
-                lane.classList.remove('slow', 'fast', 'danger');
+                lane.classList.remove('slow', 'danger', 'low');
                 if (glucose < OPTIMAL_LOW) {
-                    lane.classList.add('slow');
+                    // 低血糖：紫色，慢
+                    lane.classList.add('low');
+                    console.log(`${playerId}: 低血糖 ${glucose} → low (紫色, 4s)`);
                 } else if (glucose > 11.1) {
+                    // 危险高血糖：红色，很慢
                     lane.classList.add('danger');
+                    console.log(`${playerId}: 危险高 ${glucose} → danger (红色, 6s)`);
                 } else if (glucose > OPTIMAL_HIGH) {
-                    lane.classList.add('fast');
+                    // 偏高：黄色，慢
+                    lane.classList.add('slow');
+                    console.log(`${playerId}: 偏高 ${glucose} → slow (黄色, 4s)`);
                 }
+                // 正常范围：默认蓝色，正常速度 (2s)
             }
         }
         
@@ -1158,7 +1184,5 @@
         // ========== 启动 ==========
         init();
     </script>
-
-    <script src="/js/danmaku.js"></script>
 </body>
 </html>
