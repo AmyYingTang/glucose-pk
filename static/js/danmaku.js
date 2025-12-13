@@ -31,13 +31,33 @@ const DanmakuSystem = {
         loopTimer: null,         // 循环播放定时器
         loopIndex: 0,            // 当前循环到第几条
         isLooping: localStorage.getItem('danmaku_loop') === 'true',  // 是否循环播放
-        username: localStorage.getItem('danmaku_username') || '',
+        username: '',  // 延迟初始化
+    },
+    
+    /**
+     * 获取默认用户名（优先使用登录用户）
+     */
+    getDefaultUsername() {
+        // 1. 优先使用登录用户（总是覆盖 localStorage）
+        if (typeof window.getCurrentUser === 'function') {
+            const loginUser = window.getCurrentUser();
+            if (loginUser) {
+                // 同步更新 localStorage
+                localStorage.setItem('danmaku_username', loginUser);
+                return loginUser;
+            }
+        }
+        // 2. 其次使用 localStorage 保存的
+        return localStorage.getItem('danmaku_username') || '';
     },
     
     /**
      * 初始化弹幕系统
      */
     init() {
+        // 初始化用户名
+        this.state.username = this.getDefaultUsername();
+        
         this.createStyles();
         this.createUI();
         this.bindEvents();
@@ -832,9 +852,23 @@ const DanmakuSystem = {
     }
 };
 
-// 页面加载完成后自动初始化
+// 页面加载完成后自动初始化（延迟等待登录用户信息）
+function initDanmaku() {
+    // 等待 getCurrentUser 准备好
+    const waitForUser = () => {
+        if (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) {
+            DanmakuSystem.init();
+        } else {
+            // 最多等待 2 秒，之后无论如何都初始化
+            setTimeout(() => DanmakuSystem.init(), 100);
+        }
+    };
+    
+    setTimeout(waitForUser, 500);
+}
+
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => DanmakuSystem.init());
+    document.addEventListener('DOMContentLoaded', initDanmaku);
 } else {
-    DanmakuSystem.init();
+    initDanmaku();
 }

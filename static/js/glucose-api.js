@@ -6,7 +6,7 @@
 class GlucoseAPI {
     constructor() {
         // 从 localStorage 读取保存的模式，默认 demo
-        this.mode = localStorage.getItem('glucose_pk_mode') || 'demo';
+        this.mode = localStorage.getItem('glucose_pk_mode') || 'live';
         this.demoData = {};  // demo 模式下的模拟数据
         this.players = [];
         this.onDataUpdate = null;  // 数据更新回调

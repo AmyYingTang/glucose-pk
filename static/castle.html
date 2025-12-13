@@ -549,6 +549,10 @@
     </style>
 </head>
 <body>
+    <div style="position: fixed; top: 10px; right: 20px; z-index: 1000; display: flex; align-items: center; gap: 10px;">
+        <span id="user-info" style="color: #2c5f7c; font-size: 14px; background: rgba(255,255,255,0.9); padding: 6px 12px; border-radius: 20px;"></span>
+        <button onclick="logout()" style="background: rgba(231,76,60,0.9); color: white; border: none; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 14px;">🚪 登出</button>
+    </div>
     <div class="header">
         <h1>⚔️ 城堡攻防</h1>
         <p>血糖正常 = 建设城堡 | 血糖偏高 = 遭受攻击</p>
@@ -563,8 +567,8 @@
     
     <!-- 模式切换 -->
     <div class="mode-toggle">
-        <button class="mode-btn" id="btn-live" onclick="setMode('live')">🔴 实时</button>
-        <button class="mode-btn active" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>
+        <button class="mode-btn active" id="btn-live" onclick="setMode('live')">🔴 实时</button>
+        <button class="mode-btn" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>
     </div>
     
     <!-- 可折叠游戏规则 -->
@@ -649,7 +653,21 @@
         const CHART_UPDATE_INTERVAL = 120000;  // 曲线图更新间隔 (2分钟)
         
         // ========== 初始化 ==========
+        let currentUser = null;
+        
         async function init() {
+            // 获取登录用户信息
+            try {
+                const authRes = await fetch('/api/auth/status');
+                const authData = await authRes.json();
+                if (authData.logged_in) {
+                    currentUser = authData.username;
+                    document.getElementById('user-info').textContent = `👤 ${currentUser}`;
+                }
+            } catch (e) {
+                console.log('未登录或无法获取用户信息');
+            }
+            
             await api.init();
             const players = api.getPlayers();
             
@@ -967,6 +985,19 @@
                 else game.start();
             });
         }
+        
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/login.html';
+            } catch (e) {
+                console.error('登出失败:', e);
+                window.location.href = '/login.html';
+            }
+        }
+        
+        // 暴露 currentUser 给 danmaku.js 使用
+        window.getCurrentUser = () => currentUser;
         
         // ========== 启动 ==========
         init();
