@@ -101,7 +101,7 @@ class GlucoseChart {
         
         container.innerHTML = this.players.map((p, index) => `
             <div class="legend-item">
-                <span style="color: ${p.color}; font-size: 14px; margin-right: 2px;">${lineMarkers[index % lineMarkers.length]}</span>
+                <span style="color: ${p.color}; font-size: 8px; margin-right: 2px;">${lineMarkers[index % lineMarkers.length]}</span>
                 <div class="legend-line" style="
                     width: 20px; 
                     height: 3px; 
@@ -140,7 +140,7 @@ class GlucoseChart {
             borderWidth: 3,
             fill: false,
             tension: 0.3,
-            pointRadius: 5,
+            pointRadius: 2,
             pointHoverRadius: 7,
             spanGaps: true,
             // 不同线条样式
