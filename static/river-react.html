@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>血糖PK - 漂流冒险</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script src="js/glucose-api.js"></script>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // ========== 配置 ==========
+        const CONFIG = {
+            LANE_HEIGHT: 140,
+            FLOATER_X: 120,
+            OPTIMAL_LOW: 3.9,
+            OPTIMAL_HIGH: 7.8,
+            UPDATE_INTERVAL: 50,
+            SPAWN_INTERVAL: 1200,
+        };
+
+        const COLLECTIBLES = [
+            { emoji: '🪙', points: 1, weight: 5 },
+            { emoji: '🐟', points: 2, weight: 3 },
+            { emoji: '🐠', points: 2, weight: 3 },
+            { emoji: '🦐', points: 3, weight: 2 },
+            { emoji: '⭐', points: 5, weight: 2 },
+            { emoji: '💎', points: 10, weight: 1 },
+            { emoji: '🦑', points: 8, weight: 1 },
+        ];
+
+        // ========== 工具函数 ==========
+        const getSpeed = (glucose) => {
+            if (glucose < CONFIG.OPTIMAL_LOW) return 1 + (glucose / CONFIG.OPTIMAL_LOW);
+            if (glucose <= CONFIG.OPTIMAL_HIGH) return 3;
+            if (glucose <= 11.1) return 3 + (glucose - CONFIG.OPTIMAL_HIGH) / 3.3 * 2;
+            return 5 + Math.min(2, (glucose - 11.1) / 5);
+        };
+
+        const getGlucoseColor = (value) => {
+            if (value < 3.9) return '#3498db';
+            if (value <= 7.8) return '#2ecc71';
+            if (value <= 11.1) return '#f39c12';
+            return '#e74c3c';
+        };
+
+        const pickCollectible = () => {
+            const total = COLLECTIBLES.reduce((s, c) => s + c.weight, 0);
+            let r = Math.random() * total;
+            for (const c of COLLECTIBLES) {
+                r -= c.weight;
+                if (r <= 0) return c;
+            }
+            return COLLECTIBLES[0];
+        };
+
+        // ========== 水波纹 SVG ==========
+        const WaterWaves = ({ speed, isLow, isDanger }) => {
+            const duration = speed < 2 ? 4 : speed > 4 ? 1 : 2;
+            const color1 = isDanger ? '#e74c3c' : isLow ? '#74b9ff' : '#0984e3';
+            const color2 = isDanger ? '#c0392b' : isLow ? '#a29bfe' : '#74b9ff';
+            const color3 = isDanger ? '#e55039' : isLow ? '#81ecec' : '#00cec9';
+            
+            return (
+                <svg 
+                    style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '200%',
+                        height: '100%',
+                        animation: `flowWater ${duration}s linear infinite`,
+                    }}
+                    viewBox="0 0 1200 140"
+                    preserveAspectRatio="none"
+                >
+                    <defs>
+                        <linearGradient id="waterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor={color1} stopOpacity="0.9" />
+                            <stop offset="50%" stopColor={color2} stopOpacity="0.8" />
+                            <stop offset="100%" stopColor={color3} stopOpacity="0.9" />
+                        </linearGradient>
+                        <filter id="glow">
+                            <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                            <feMerge>
+                                <feMergeNode in="coloredBlur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+                    </defs>
+                    
+                    <rect width="100%" height="100%" fill="url(#waterGrad)" />
+                    
+                    {/* 波浪层 */}
+                    {[0, 1, 2].map(i => (
+                        <path
+                            key={i}
+                            d={`M0,${30 + i * 35} Q150,${15 + i * 35} 300,${30 + i * 35} T600,${30 + i * 35} T900,${30 + i * 35} T1200,${30 + i * 35}`}
+                            fill="none"
+                            stroke={`rgba(255,255,255,${0.3 - i * 0.08})`}
+                            strokeWidth={3 - i * 0.5}
+                            style={{
+                                animation: `wave ${2 + i * 0.5}s ease-in-out infinite`,
+                                animationDelay: `${i * 0.2}s`,
+                            }}
+                        />
+                    ))}
+                    
+                    {/* 气泡 */}
+                    {[...Array(8)].map((_, i) => (
+                        <circle
+                            key={i}
+                            cx={100 + i * 140}
+                            cy={100}
+                            r={3 + Math.random() * 4}
+                            fill="rgba(255,255,255,0.4)"
+                            style={{
+                                animation: `bubble ${2 + Math.random()}s ease-in-out infinite`,
+                                animationDelay: `${Math.random() * 2}s`,
+                            }}
+                        />
+                    ))}
+                </svg>
+            );
+        };
+
+        // ========== 漂流者组件 ==========
+        const Floater = ({ avatar, name, y, speed, glucose }) => {
+            const isLow = glucose < CONFIG.OPTIMAL_LOW;
+            const isDanger = glucose > 11.1;
+            const bobDuration = isLow ? 1.5 : isDanger ? 0.3 : 0.8;
+            
+            return (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: CONFIG.FLOATER_X,
+                        top: y,
+                        transition: 'top 0.3s ease-out',
+                        zIndex: 10,
+                        filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.4))',
+                    }}
+                >
+                    <div
+                        style={{
+                            animation: `floaterBob ${bobDuration}s ease-in-out infinite`,
+                            opacity: isLow ? 0.7 : 1,
+                        }}
+                    >
+                        <img
+                            src={avatar}
+                            alt={name}
+                            style={{
+                                width: 55,
+                                height: 55,
+                                borderRadius: '50%',
+                                border: `3px solid ${getGlucoseColor(glucose)}`,
+                                objectFit: 'cover',
+                                boxShadow: `0 0 20px ${getGlucoseColor(glucose)}80`,
+                            }}
+                        />
+                    </div>
+                    {/* 水花效果 */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: -5,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        fontSize: 20,
+                        opacity: 0.7,
+                        animation: 'splash 0.5s ease-in-out infinite',
+                    }}>
+                        💧
+                    </div>
+                </div>
+            );
+        };
+
+        // ========== 收集物组件 ==========
+        const Collectible = ({ item, onCollect }) => {
+            const [collected, setCollected] = useState(false);
+            
+            if (collected) return null;
+            
+            return (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: item.x,
+                        top: item.y,
+                        fontSize: 32,
+                        transition: 'left 0.05s linear',
+                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.3))',
+                        animation: 'collectibleFloat 1s ease-in-out infinite',
+                        zIndex: 8,
+                    }}
+                >
+                    {item.emoji}
+                </div>
+            );
+        };
+
+        // ========== 收集特效 ==========
+        const CollectEffect = ({ x, y, points, onComplete }) => {
+            useEffect(() => {
+                const timer = setTimeout(onComplete, 800);
+                return () => clearTimeout(timer);
+            }, [onComplete]);
+            
+            return (
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: x,
+                        top: y,
+                        fontSize: 20,
+                        fontWeight: 'bold',
+                        color: '#ffd700',
+                        textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+                        animation: 'scoreFloat 0.8s ease-out forwards',
+                        zIndex: 20,
+                        pointerEvents: 'none',
+                    }}
+                >
+                    +{points}
+                </div>
+            );
+        };
+
+        // ========== 玩家泳道 ==========
+        const PlayerLane = ({ player, state, collectibles, effects, onEffectComplete }) => {
+            const speed = getSpeed(state.glucose);
+            const isLow = state.glucose < CONFIG.OPTIMAL_LOW;
+            const isDanger = state.glucose > 11.1;
+            
+            return (
+                <div
+                    style={{
+                        position: 'relative',
+                        height: CONFIG.LANE_HEIGHT,
+                        marginBottom: 20,
+                        borderRadius: 20,
+                        overflow: 'hidden',
+                        boxShadow: `0 10px 40px rgba(0,0,0,0.3), inset 0 0 60px rgba(255,255,255,0.1)`,
+                        border: `2px solid ${getGlucoseColor(state.glucose)}40`,
+                    }}
+                >
+                    {/* 水波背景 */}
+                    <WaterWaves speed={speed} isLow={isLow} isDanger={isDanger} />
+                    
+                    {/* 河岸 */}
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 12,
+                        background: 'linear-gradient(180deg, #27ae60 0%, #2ecc71 50%, transparent 100%)',
+                        zIndex: 5,
+                    }} />
+                    <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        height: 12,
+                        background: 'linear-gradient(0deg, #27ae60 0%, #2ecc71 50%, transparent 100%)',
+                        zIndex: 5,
+                    }} />
+                    
+                    {/* 玩家信息 */}
+                    <div style={{
+                        position: 'absolute',
+                        left: 15,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'rgba(255,255,255,0.95)',
+                        padding: '10px 18px',
+                        borderRadius: 30,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                        zIndex: 15,
+                    }}>
+                        <img 
+                            src={player.avatar} 
+                            alt={player.name}
+                            style={{
+                                width: 45,
+                                height: 45,
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                                border: `2px solid ${getGlucoseColor(state.glucose)}`,
+                            }}
+                        />
+                        <div>
+                            <div style={{ fontWeight: 600, fontSize: 15, color: '#2c3e50' }}>
+                                {player.name}
+                            </div>
+                            <div style={{ 
+                                fontWeight: 700, 
+                                fontSize: 20, 
+                                color: getGlucoseColor(state.glucose),
+                            }}>
+                                {state.glucose.toFixed(1)} <span style={{ fontSize: 12, opacity: 0.7 }}>mmol/L</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {/* 分数 */}
+                    <div style={{
+                        position: 'absolute',
+                        right: 15,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'linear-gradient(135deg, #f39c12 0%, #e74c3c 100%)',
+                        padding: '12px 25px',
+                        borderRadius: 25,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        boxShadow: '0 4px 20px rgba(243, 156, 18, 0.4)',
+                        zIndex: 15,
+                    }}>
+                        <span style={{ fontSize: 24 }}>🪙</span>
+                        <span style={{ 
+                            fontSize: 28, 
+                            fontWeight: 'bold', 
+                            color: 'white',
+                            textShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                        }}>
+                            {state.score}
+                        </span>
+                    </div>
+                    
+                    {/* 距离 */}
+                    <div style={{
+                        position: 'absolute',
+                        right: 140,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'rgba(0,0,0,0.6)',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: 15,
+                        fontSize: 13,
+                        zIndex: 15,
+                    }}>
+                        {Math.floor(state.distance)} m
+                    </div>
+                    
+                    {/* 漂流者 */}
+                    <Floater 
+                        avatar={player.avatar}
+                        name={player.name}
+                        y={state.y}
+                        speed={speed}
+                        glucose={state.glucose}
+                    />
+                    
+                    {/* 收集物 */}
+                    {collectibles.map(item => (
+                        <Collectible key={item.id} item={item} />
+                    ))}
+                    
+                    {/* 收集特效 */}
+                    {effects.map(effect => (
+                        <CollectEffect
+                            key={effect.id}
+                            x={effect.x}
+                            y={effect.y}
+                            points={effect.points}
+                            onComplete={() => onEffectComplete(player.id, effect.id)}
+                        />
+                    ))}
+                </div>
+            );
+        };
+
+        // ========== 排行榜 ==========
+        const Leaderboard = ({ players, gameState }) => {
+            const sorted = [...players]
+                .map(p => ({ ...p, score: gameState[p.id]?.score || 0 }))
+                .sort((a, b) => b.score - a.score);
+            
+            return (
+                <div style={{
+                    maxWidth: 400,
+                    margin: '20px auto',
+                    background: 'rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: 20,
+                    padding: 20,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                }}>
+                    <h4 style={{ 
+                        textAlign: 'center', 
+                        color: 'white', 
+                        marginBottom: 15,
+                        fontSize: 16,
+                    }}>
+                        🏆 排行榜
+                    </h4>
+                    {sorted.map((p, i) => (
+                        <div key={p.id} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: 12,
+                            marginBottom: 8,
+                            borderRadius: 12,
+                            background: i === 0 
+                                ? 'linear-gradient(135deg, #f39c12 0%, #e74c3c 100%)'
+                                : 'rgba(255,255,255,0.1)',
+                        }}>
+                            <span style={{ 
+                                fontSize: 20, 
+                                fontWeight: 'bold', 
+                                width: 35,
+                                textAlign: 'center',
+                                color: 'white',
+                            }}>
+                                {i === 0 ? '👑' : i + 1}
+                            </span>
+                            <img 
+                                src={p.avatar} 
+                                alt={p.name}
+                                style={{
+                                    width: 40,
+                                    height: 40,
+                                    borderRadius: '50%',
+                                    objectFit: 'cover',
+                                }}
+                            />
+                            <span style={{ 
+                                flex: 1, 
+                                fontWeight: 600, 
+                                color: 'white',
+                            }}>
+                                {p.name}
+                            </span>
+                            <span style={{ 
+                                fontSize: 18, 
+                                fontWeight: 'bold',
+                                color: 'white',
+                            }}>
+                                🪙 {p.score}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // ========== Demo 控制面板 ==========
+        const DemoPanel = ({ players, visible, onSliderChange }) => {
+            if (!visible) return null;
+            
+            return (
+                <div style={{
+                    maxWidth: 500,
+                    margin: '20px auto',
+                    background: 'rgba(255,255,255,0.1)',
+                    backdropFilter: 'blur(10px)',
+                    borderRadius: 20,
+                    padding: 20,
+                    border: '1px solid rgba(255,255,255,0.2)',
+                }}>
+                    <h3 style={{ 
+                        textAlign: 'center', 
+                        color: 'white', 
+                        marginBottom: 20,
+                        fontSize: 14,
+                    }}>
+                        🎮 Demo 模式 - 调整血糖值
+                    </h3>
+                    {players.map(p => (
+                        <div key={p.id} style={{ marginBottom: 15 }}>
+                            <div style={{ 
+                                display: 'flex', 
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                marginBottom: 8,
+                                color: 'white',
+                                fontSize: 14,
+                            }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <img 
+                                        src={p.avatar} 
+                                        alt={p.name}
+                                        style={{
+                                            width: 24,
+                                            height: 24,
+                                            borderRadius: '50%',
+                                            objectFit: 'cover',
+                                        }}
+                                    />
+                                    {p.name}
+                                </span>
+                                <span id={`slider-value-${p.id}`}>5.6 mmol/L</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="2.8"
+                                max="16.7"
+                                step="0.1"
+                                defaultValue="5.6"
+                                onChange={(e) => onSliderChange(p.id, parseFloat(e.target.value))}
+                                style={{
+                                    width: '100%',
+                                    height: 10,
+                                    borderRadius: 5,
+                                    background: `linear-gradient(to right, 
+                                        #3498db 0%, #3498db 8%,
+                                        #2ecc71 8%, #2ecc71 36%, 
+                                        #f39c12 36%, #f39c12 60%, 
+                                        #e74c3c 60%, #e74c3c 100%)`,
+                                    cursor: 'pointer',
+                                    WebkitAppearance: 'none',
+                                }}
+                            />
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // ========== 主应用 ==========
+        const App = () => {
+            const [players, setPlayers] = useState([]);
+            const [gameState, setGameState] = useState({});
+            const [collectibles, setCollectibles] = useState({});
+            const [effects, setEffects] = useState({});
+            const [mode, setMode] = useState('demo');
+            const [isPaused, setIsPaused] = useState(false);
+            const apiRef = useRef(null);
+            const collectibleIdRef = useRef(0);
+            const effectIdRef = useRef(0);
+
+            // 初始化
+            useEffect(() => {
+                const initGame = async () => {
+                    apiRef.current = new GlucoseAPI();
+                    await apiRef.current.init();
+                    const p = apiRef.current.getPlayers();
+                    setPlayers(p);
+                    
+                    const initialState = {};
+                    const initialCollectibles = {};
+                    const initialEffects = {};
+                    
+                    p.forEach(player => {
+                        initialState[player.id] = {
+                            y: CONFIG.LANE_HEIGHT / 2 - 27,
+                            score: 0,
+                            distance: 0,
+                            glucose: 5.6,
+                        };
+                        initialCollectibles[player.id] = [];
+                        initialEffects[player.id] = [];
+                    });
+                    
+                    setGameState(initialState);
+                    setCollectibles(initialCollectibles);
+                    setEffects(initialEffects);
+                    
+                    // 恢复模式
+                    const savedMode = apiRef.current.getMode();
+                    setMode(savedMode);
+                };
+                
+                initGame();
+            }, []);
+
+            // 游戏循环
+            useEffect(() => {
+                if (players.length === 0 || isPaused) return;
+                
+                const gameLoop = setInterval(async () => {
+                    const result = await apiRef.current.getAllPlayersData();
+                    if (!result.success) return;
+                    
+                    setGameState(prev => {
+                        const next = { ...prev };
+                        
+                        Object.entries(result.data).forEach(([playerId, data]) => {
+                            const state = next[playerId];
+                            if (!state) return;
+                            
+                            const glucose = data.value;
+                            const speed = getSpeed(glucose);
+                            
+                            state.glucose = glucose;
+                            state.distance += speed * 0.05;
+                            
+                            // 上下漂移
+                            const drift = (Math.random() - 0.5) * 4;
+                            state.y = Math.max(15, Math.min(CONFIG.LANE_HEIGHT - 70, state.y + drift));
+                        });
+                        
+                        return next;
+                    });
+                    
+                    // 移动收集物并检测碰撞
+                    setCollectibles(prev => {
+                        const next = { ...prev };
+                        
+                        Object.keys(next).forEach(playerId => {
+                            const state = gameState[playerId];
+                            if (!state) return;
+                            
+                            const speed = getSpeed(state.glucose);
+                            
+                            next[playerId] = next[playerId].filter(item => {
+                                item.x -= speed * 4;
+                                
+                                // 碰撞检测
+                                const dx = Math.abs(item.x - CONFIG.FLOATER_X - 20);
+                                const dy = Math.abs(item.y - state.y - 20);
+                                
+                                if (dx < 45 && dy < 45) {
+                                    // 收集到了
+                                    setGameState(gs => ({
+                                        ...gs,
+                                        [playerId]: {
+                                            ...gs[playerId],
+                                            score: gs[playerId].score + item.points,
+                                        }
+                                    }));
+                                    
+                                    // 添加特效
+                                    setEffects(ef => ({
+                                        ...ef,
+                                        [playerId]: [
+                                            ...ef[playerId],
+                                            {
+                                                id: effectIdRef.current++,
+                                                x: item.x,
+                                                y: item.y,
+                                                points: item.points,
+                                            }
+                                        ]
+                                    }));
+                                    
+                                    return false;
+                                }
+                                
+                                return item.x > -50;
+                            });
+                        });
+                        
+                        return next;
+                    });
+                }, CONFIG.UPDATE_INTERVAL);
+                
+                return () => clearInterval(gameLoop);
+            }, [players, isPaused, gameState]);
+
+            // 生成收集物
+            useEffect(() => {
+                if (players.length === 0 || isPaused) return;
+                
+                const spawnLoop = setInterval(() => {
+                    setCollectibles(prev => {
+                        const next = { ...prev };
+                        
+                        players.forEach(player => {
+                            if (Math.random() > 0.6) return;
+                            
+                            const item = pickCollectible();
+                            next[player.id] = [
+                                ...next[player.id],
+                                {
+                                    id: collectibleIdRef.current++,
+                                    emoji: item.emoji,
+                                    points: item.points,
+                                    x: 900 + Math.random() * 100,
+                                    y: 20 + Math.random() * (CONFIG.LANE_HEIGHT - 60),
+                                }
+                            ];
+                        });
+                        
+                        return next;
+                    });
+                }, CONFIG.SPAWN_INTERVAL);
+                
+                return () => clearInterval(spawnLoop);
+            }, [players, isPaused]);
+
+            const handleModeChange = (newMode) => {
+                setMode(newMode);
+                apiRef.current?.setMode(newMode);
+            };
+
+            const handleSliderChange = (playerId, value) => {
+                apiRef.current?.setDemoValue(playerId, value);
+                const label = document.getElementById(`slider-value-${playerId}`);
+                if (label) label.textContent = `${value.toFixed(1)} mmol/L`;
+            };
+
+            const handleEffectComplete = (playerId, effectId) => {
+                setEffects(prev => ({
+                    ...prev,
+                    [playerId]: prev[playerId].filter(e => e.id !== effectId),
+                }));
+            };
+
+            const handleReset = () => {
+                const resetState = {};
+                const resetCollectibles = {};
+                const resetEffects = {};
+                
+                players.forEach(p => {
+                    resetState[p.id] = {
+                        y: CONFIG.LANE_HEIGHT / 2 - 27,
+                        score: 0,
+                        distance: 0,
+                        glucose: 5.6,
+                    };
+                    resetCollectibles[p.id] = [];
+                    resetEffects[p.id] = [];
+                    apiRef.current?.setDemoValue(p.id, 5.6);
+                    
+                    const slider = document.querySelector(`input[type="range"]`);
+                    if (slider) slider.value = 5.6;
+                    const label = document.getElementById(`slider-value-${p.id}`);
+                    if (label) label.textContent = '5.6 mmol/L';
+                });
+                
+                setGameState(resetState);
+                setCollectibles(resetCollectibles);
+                setEffects(resetEffects);
+            };
+
+            return (
+                <div>
+                    {/* CSS 动画 */}
+                    <style>{`
+                        @keyframes flowWater {
+                            0% { transform: translateX(0); }
+                            100% { transform: translateX(-50%); }
+                        }
+                        @keyframes wave {
+                            0%, 100% { transform: translateY(0); }
+                            50% { transform: translateY(-5px); }
+                        }
+                        @keyframes bubble {
+                            0% { transform: translateY(0); opacity: 0.4; }
+                            50% { transform: translateY(-40px); opacity: 0.8; }
+                            100% { transform: translateY(-80px); opacity: 0; }
+                        }
+                        @keyframes floaterBob {
+                            0%, 100% { transform: translateY(0) rotate(-5deg); }
+                            50% { transform: translateY(-8px) rotate(5deg); }
+                        }
+                        @keyframes splash {
+                            0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.7; }
+                            50% { transform: translateX(-50%) scale(1.2); opacity: 0.3; }
+                        }
+                        @keyframes collectibleFloat {
+                            0%, 100% { transform: translateY(0); }
+                            50% { transform: translateY(-5px); }
+                        }
+                        @keyframes scoreFloat {
+                            0% { transform: translateY(0) scale(1); opacity: 1; }
+                            100% { transform: translateY(-40px) scale(1.5); opacity: 0; }
+                        }
+                        input[type="range"]::-webkit-slider-thumb {
+                            -webkit-appearance: none;
+                            width: 22px;
+                            height: 22px;
+                            border-radius: 50%;
+                            background: white;
+                            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                            cursor: pointer;
+                        }
+                    `}</style>
+                    
+                    {/* 头部 */}
+                    <div style={{
+                        textAlign: 'center',
+                        padding: 20,
+                        background: 'rgba(255,255,255,0.1)',
+                        backdropFilter: 'blur(10px)',
+                    }}>
+                        <h1 style={{ 
+                            fontSize: 28, 
+                            color: 'white',
+                            textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+                        }}>
+                            🌊 漂流冒险
+                        </h1>
+                        <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: 5 }}>
+                            保持血糖平稳，漂得更快更远！
+                        </p>
+                    </div>
+                    
+                    {/* 导航 */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: 10,
+                        padding: 15,
+                    }}>
+                        {[
+                            { href: 'pk.html', icon: '🏃', label: '赛跑' },
+                            { href: 'castle.html', icon: '⚔️', label: '城堡' },
+                            { href: 'river.html', icon: '🌊', label: '漂流', active: true },
+                        ].map(item => (
+                            <a
+                                key={item.href}
+                                href={item.href}
+                                style={{
+                                    padding: '10px 20px',
+                                    borderRadius: 25,
+                                    textDecoration: 'none',
+                                    color: item.active ? 'white' : 'rgba(255,255,255,0.7)',
+                                    background: item.active 
+                                        ? 'linear-gradient(135deg, #00b894 0%, #00cec9 100%)'
+                                        : 'rgba(255,255,255,0.1)',
+                                    boxShadow: item.active ? '0 4px 20px rgba(0,184,148,0.4)' : 'none',
+                                    fontSize: 14,
+                                }}
+                            >
+                                {item.icon} {item.label}
+                            </a>
+                        ))}
+                    </div>
+                    
+                    {/* 模式切换 */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: 10,
+                        marginBottom: 20,
+                    }}>
+                        {['live', 'demo'].map(m => (
+                            <button
+                                key={m}
+                                onClick={() => handleModeChange(m)}
+                                style={{
+                                    padding: '10px 20px',
+                                    border: 'none',
+                                    borderRadius: 20,
+                                    cursor: 'pointer',
+                                    background: mode === m ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.2)',
+                                    color: mode === m ? '#2c3e50' : 'rgba(255,255,255,0.7)',
+                                    fontSize: 13,
+                                }}
+                            >
+                                {m === 'live' ? '🔴 实时' : '🎮 Demo'}
+                            </button>
+                        ))}
+                    </div>
+                    
+                    {/* 游戏区域 */}
+                    <div style={{ maxWidth: 950, margin: '0 auto', padding: '0 20px' }}>
+                        {players.map(player => (
+                            <PlayerLane
+                                key={player.id}
+                                player={player}
+                                state={gameState[player.id] || { y: 50, score: 0, distance: 0, glucose: 5.6 }}
+                                collectibles={collectibles[player.id] || []}
+                                effects={effects[player.id] || []}
+                                onEffectComplete={handleEffectComplete}
+                            />
+                        ))}
+                    </div>
+                    
+                    {/* 排行榜 */}
+                    <Leaderboard players={players} gameState={gameState} />
+                    
+                    {/* Demo 面板 */}
+                    <DemoPanel
+                        players={players}
+                        visible={mode === 'demo'}
+                        onSliderChange={handleSliderChange}
+                    />
+                    
+                    {/* 控制按钮 */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: 15,
+                        padding: 20,
+                    }}>
+                        <button
+                            onClick={handleReset}
+                            style={{
+                                padding: '12px 30px',
+                                border: 'none',
+                                borderRadius: 25,
+                                background: 'linear-gradient(135deg, #00b894 0%, #00cec9 100%)',
+                                color: 'white',
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 20px rgba(0,184,148,0.4)',
+                            }}
+                        >
+                            🔄 重新开始
+                        </button>
+                        <button
+                            onClick={() => setIsPaused(!isPaused)}
+                            style={{
+                                padding: '12px 30px',
+                                border: 'none',
+                                borderRadius: 25,
+                                background: 'rgba(255,255,255,0.2)',
+                                color: 'white',
+                                fontSize: 14,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                            }}
+                        >
+                            {isPaused ? '▶️ 继续' : '⏸️ 暂停'}
+                        </button>
+                    </div>
+                    
+                    {/* 状态栏 */}
+                    <div style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        gap: 10,
+                        paddingBottom: 30,
+                        color: 'rgba(255,255,255,0.6)',
+                        fontSize: 12,
+                    }}>
+                        <div style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: '50%',
+                            background: mode === 'live' ? '#2ecc71' : '#f39c12',
+                            animation: mode === 'live' ? 'pulse 2s infinite' : 'none',
+                        }} />
+                        <span>{mode === 'live' ? '实时模式' : 'Demo 模式'}</span>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

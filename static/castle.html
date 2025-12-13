@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>血糖PK - 城堡攻防</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="css/pk-common.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            color: white;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+        
+        /* 场景导航 */
+        .scene-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .scene-link {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            text-decoration: none;
+            color: rgba(255,255,255,0.7);
+            background: rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        
+        .scene-link:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .scene-link.active {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
+        
+        /* 模式切换 */
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.7);
+        }
+        
+        .mode-btn.active {
+            background: rgba(255,255,255,0.9);
+            color: #333;
+        }
+        
+        /* 可折叠规则面板 */
+        .rules-panel {
+            max-width: 600px;
+            margin: 0 auto 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .rules-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.05);
+            transition: background 0.3s;
+        }
+        
+        .rules-header:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .rules-header h4 {
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .rules-toggle {
+            font-size: 12px;
+            transition: transform 0.3s;
+        }
+        
+        .rules-panel.collapsed .rules-toggle {
+            transform: rotate(-90deg);
+        }
+        
+        .rules-content {
+            padding: 15px 20px;
+            font-size: 12px;
+            line-height: 1.8;
+            max-height: 200px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        
+        .rules-panel.collapsed .rules-content {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        
+        .rule-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+        }
+        
+        .rule-icon {
+            font-size: 16px;
+            width: 24px;
+            text-align: center;
+        }
+        
+        /* 曲线图容器 */
+        .chart-section {
+            max-width: 900px;
+            margin: 0 auto 20px;
+            padding: 0 20px;
+        }
+        
+        .chart-container {
+            background: rgba(255,255,255,0.95);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .chart-header h4 {
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .chart-legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .legend-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .slider-player {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .slider-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 200px;
+        }
+        
+        /* 城堡战场 */
+        .battlefield {
+            display: flex;
+            gap: 20px;
+            padding: 0 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .castle-arena {
+            flex: 1;
+            min-width: 280px;
+            max-width: 400px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .arena-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .player-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .player-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        
+        .player-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .glucose-display {
+            text-align: right;
+        }
+        
+        .glucose-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .glucose-value.normal { color: #4CAF50; }
+        .glucose-value.warning { color: #FF9800; }
+        .glucose-value.danger { color: #f44336; }
+        .glucose-value.low { color: #2196F3; }
+        
+        .glucose-unit {
+            font-size: 12px;
+            opacity: 0.7;
+        }
+        
+        .glucose-trend {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+        
+        .canvas-container {
+            width: 100%;
+            height: 250px;
+            border-radius: 15px;
+            overflow: hidden;
+            background: linear-gradient(180deg, #1a1a2e 0%, #2d5016 100%);
+        }
+        
+        .castle-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 战况面板 */
+        .battle-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-label {
+            font-size: 10px;
+            opacity: 0.6;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        /* 排行榜 */
+        .leaderboard {
+            max-width: 400px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 15px;
+        }
+        
+        .leaderboard h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        
+        .rank {
+            font-size: 20px;
+            font-weight: bold;
+            width: 35px;
+        }
+        
+        .rank.gold { color: #FFD700; }
+        .rank.silver { color: #C0C0C0; }
+        .rank.bronze { color: #CD7F32; }
+        
+        .lb-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .lb-info {
+            flex: 1;
+        }
+        
+        .lb-name {
+            font-weight: 600;
+        }
+        
+        .lb-stats {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+        
+        .lb-score {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        /* Demo 控制 */
+        .demo-panel {
+            max-width: 500px;
+            margin: 20px auto;
+            background: rgba(0,0,0,0.3);
+            border-radius: 15px;
+            padding: 20px;
+            display: none;
+        }
+        
+        .demo-panel.visible {
+            display: block;
+        }
+        
+        .demo-panel h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .demo-slider-group {
+            margin-bottom: 15px;
+        }
+        
+        .demo-slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .demo-slider {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            /* 2.8-16.7 mmol/L 范围，阈值: 3.9, 7.8, 11.1 */
+            /* 3.9 = 8%, 7.8 = 36%, 11.1 = 60% */
+            background: linear-gradient(to right, 
+                #2196F3 0%, #2196F3 8%,
+                #4CAF50 8%, #4CAF50 36%, 
+                #FF9800 36%, #FF9800 60%, 
+                #f44336 60%, #f44336 100%);
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .demo-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        
+        .demo-slider::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            border: none;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .control-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .control-btn.primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .control-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .control-btn.secondary {
+            background: rgba(255,255,255,0.2);
+            color: white;
+        }
+        
+        .control-btn.secondary:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        /* 状态栏 */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            margin-top: 15px;
+            opacity: 0.7;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.error {
+            background: #f44336;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        /* 响应式 */
+        @media (max-width: 700px) {
+            .battlefield {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .castle-arena {
+                width: 100%;
+                max-width: 350px;
+            }
+            
+            .chart-legend {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>⚔️ 城堡攻防</h1>
+        <p>血糖正常 = 建设城堡 | 血糖偏高 = 遭受攻击</p>
+    </div>
+    
+    <!-- 场景导航 -->
+    <div class="scene-nav">
+        <a href="pk.html" class="scene-link">🏃 赛跑</a>
+        <a href="castle.html" class="scene-link active">⚔️ 城堡</a>
+        <a href="river.html" class="scene-link">🌊 漂流</a>
+    </div>
+    
+    <!-- 模式切换 -->
+    <div class="mode-toggle">
+        <button class="mode-btn" id="btn-live" onclick="setMode('live')">🔴 实时</button>
+        <button class="mode-btn active" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>
+    </div>
+    
+    <!-- 可折叠游戏规则 -->
+    <div class="rules-panel collapsed" id="rules-panel">
+        <div class="rules-header" onclick="toggleRules()">
+            <h4>📜 游戏规则</h4>
+            <span class="rules-toggle">▼</span>
+        </div>
+        <div class="rules-content">
+            <div class="rule-item"><span class="rule-icon">🔨</span> 血糖 3.9-7.8：城堡建设中，生命恢复，积累升级</div>
+            <div class="rule-item"><span class="rule-icon">⚡</span> 血糖 &lt; 3.9：资源不足，建设缓慢，轻微损耗</div>
+            <div class="rule-item"><span class="rule-icon">⚔️</span> 血糖 7.8-11.1：遭受攻击，城墙受损</div>
+            <div class="rule-item"><span class="rule-icon">🔥</span> 血糖 &gt; 11.1：猛烈攻击，城堡崩塌！</div>
+            <div class="rule-item"><span class="rule-icon">🏆</span> 比拼：城堡生命值 + 等级加成 = 总分</div>
+        </div>
+    </div>
+    
+    <!-- 血糖曲线图 -->
+    <div class="chart-section">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4>📈 血糖趋势</h4>
+                <div class="chart-legend" id="chart-legend">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="glucose-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 城堡战场 -->
+    <div class="battlefield" id="battlefield">
+        <!-- 动态生成 -->
+    </div>
+    
+    <!-- 排行榜 -->
+    <div class="leaderboard">
+        <h3>🏆 城堡排行榜</h3>
+        <div id="leaderboard-list">
+            <!-- 动态生成 -->
+        </div>
+    </div>
+    
+    <!-- Demo 控制面板 -->
+    <div class="demo-panel visible" id="demo-panel">
+        <h3>🎮 Demo 模式 - 调整血糖值</h3>
+        <div id="demo-sliders">
+            <!-- 动态生成 -->
+        </div>
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="controls">
+        <button class="control-btn primary" onclick="resetGame()">🔄 重置游戏</button>
+        <button class="control-btn secondary" onclick="togglePause()" id="pause-btn">⏸️ 暂停</button>
+    </div>
+    
+    <!-- 状态栏 -->
+    <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Demo 模式</span>
+    </div>
+
+    <script src="js/glucose-api.js"></script>
+    <script src="js/glucose-chart.js"></script>
+    <script src="js/castle-game.js"></script>
+    <script>
+        // ========== 全局状态 ==========
+        let api = new GlucoseAPI();
+        let glucoseChart = null;
+        let castleGames = {};  // playerId -> CastleGame
+        let isPaused = false;
+        let gameLoop = null;
+        let dataFetchLoop = null;
+        let chartUpdateTimer = null;
+        let currentGlucose = {};  // playerId -> value
+        
+        const UPDATE_INTERVAL = 100;           // 游戏更新间隔 (ms)
+        const DATA_FETCH_INTERVAL = 30000;     // 数据获取间隔 (ms)
+        const CHART_UPDATE_INTERVAL = 120000;  // 曲线图更新间隔 (2分钟)
+        
+        // ========== 初始化 ==========
+        async function init() {
+            await api.init();
+            const players = api.getPlayers();
+            
+            // 初始化当前血糖数据
+            players.forEach(p => {
+                currentGlucose[p.id] = 5.6;
+            });
+            
+            renderArenas(players);
+            renderDemoSliders(players);
+            
+            // 初始化曲线图组件
+            glucoseChart = new GlucoseChart({
+                canvasId: 'glucose-chart',
+                legendId: 'chart-legend',
+                players: players,
+                maxPoints: 30
+            });
+            glucoseChart.init();
+            
+            // 创建城堡游戏实例
+            players.forEach(player => {
+                const game = new CastleGame(`canvas-${player.id}`, player.id, player);
+                castleGames[player.id] = game;
+                game.start();
+            });
+            
+            // 恢复保存的模式
+            const savedMode = api.getMode();
+            applyMode(savedMode);
+            
+            startGameLoop();
+        }
+        
+        // ========== 规则面板折叠 ==========
+        function toggleRules() {
+            const panel = document.getElementById('rules-panel');
+            panel.classList.toggle('collapsed');
+        }
+        
+        // ========== 曲线图更新 ==========
+        function updateChartData() {
+            if (!glucoseChart) return;
+            
+            const chartData = {};
+            api.getPlayers().forEach(p => {
+                chartData[p.id] = currentGlucose[p.id] || 5.6;
+            });
+            glucoseChart.addDataPoint(chartData);
+        }
+        
+        // ========== 渲染 ==========
+        function renderArenas(players) {
+            const container = document.getElementById('battlefield');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const arena = document.createElement('div');
+                arena.className = 'castle-arena';
+                arena.id = `arena-${player.id}`;
+                arena.innerHTML = `
+                    <div class="arena-header">
+                        <div class="player-badge">
+                            <img src="${player.avatar}" class="player-avatar" alt="${player.name}">
+                            <span class="player-name">${player.name}</span>
+                        </div>
+                        <div class="glucose-display">
+                            <div class="glucose-value normal" id="glucose-${player.id}">--</div>
+                            <div class="glucose-unit">mmol/L</div>
+                            <div class="glucose-trend" id="trend-${player.id}">→ 平稳</div>
+                        </div>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas class="castle-canvas" id="canvas-${player.id}"></canvas>
+                    </div>
+                    <div class="battle-stats">
+                        <div class="stat-item">
+                            <div class="stat-label">生命</div>
+                            <div class="stat-value" id="hp-${player.id}">100%</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">等级</div>
+                            <div class="stat-value" id="level-${player.id}">Lv.1</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">状态</div>
+                            <div class="stat-value" id="status-${player.id}">🔨</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(arena);
+            });
+        }
+        
+        function renderDemoSliders(players) {
+            const container = document.getElementById('demo-sliders');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const group = document.createElement('div');
+                group.className = 'demo-slider-group';
+                group.innerHTML = `
+                    <div class="demo-slider-header">
+                        <span class="slider-player">
+                            <img src="${player.avatar}" class="slider-avatar" alt="${player.name}">
+                            ${player.name}
+                        </span>
+                        <span id="slider-value-${player.id}">5.6 mmol/L</span>
+                    </div>
+                    <input type="range" class="demo-slider" 
+                           id="slider-${player.id}"
+                           min="2.8" max="16.7" step="0.1" value="5.6"
+                           oninput="onSliderChange('${player.id}', this.value)">
+                `;
+                container.appendChild(group);
+            });
+        }
+        
+        function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            const players = api.getPlayers();
+            
+            // 计算得分（生命值 + 等级加成）
+            const scores = players.map(p => {
+                const game = castleGames[p.id];
+                const state = game ? game.getState() : { health: 0, level: 1 };
+                const score = state.health + (state.level - 1) * 20;
+                return {
+                    ...p,
+                    health: state.health,
+                    level: state.level,
+                    score: score
+                };
+            });
+            
+            // 按得分排序
+            scores.sort((a, b) => b.score - a.score);
+            
+            list.innerHTML = '';
+            scores.forEach((player, index) => {
+                const rankClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                item.innerHTML = `
+                    <span class="rank ${rankClass}">#${index + 1}</span>
+                    <img src="${player.avatar}" class="lb-avatar" alt="${player.name}">
+                    <div class="lb-info">
+                        <div class="lb-name">${player.name}</div>
+                        <div class="lb-stats">HP: ${Math.round(player.health)}% | Lv.${player.level}</div>
+                    </div>
+                    <span class="lb-score">${Math.round(player.score)}</span>
+                `;
+                list.appendChild(item);
+            });
+        }
+        
+        // ========== 游戏逻辑 ==========
+        function startGameLoop() {
+            // 游戏更新循环
+            gameLoop = setInterval(() => {
+                if (isPaused) return;
+                updateGame();
+            }, UPDATE_INTERVAL);
+            
+            // 曲线图更新（每2分钟）
+            updateChartData();  // 立即更新一次
+            chartUpdateTimer = setInterval(updateChartData, CHART_UPDATE_INTERVAL);
+        }
+        
+        async function updateGame() {
+            const result = await api.getAllPlayersData();
+            
+            if (result.success) {
+                Object.entries(result.data).forEach(([playerId, data]) => {
+                    const game = castleGames[playerId];
+                    if (game) {
+                        // 保存当前血糖值
+                        currentGlucose[playerId] = data.value;
+                        
+                        // 更新城堡状态
+                        const state = game.updateWithGlucose(data.value);
+                        
+                        // 更新 UI
+                        updatePlayerUI(playerId, data, state);
+                    }
+                });
+                
+                // 更新排行榜
+                renderLeaderboard();
+            }
+        }
+        
+        function updatePlayerUI(playerId, data, state) {
+            // 血糖值
+            const glucoseEl = document.getElementById(`glucose-${playerId}`);
+            if (glucoseEl) {
+                glucoseEl.textContent = data.value;
+                glucoseEl.className = `glucose-value ${GlucoseUtils.getStatus(data.value)}`;
+            }
+            
+            // 趋势
+            const trendEl = document.getElementById(`trend-${playerId}`);
+            if (trendEl) {
+                trendEl.textContent = `${data.trend_arrow || '→'} ${GlucoseUtils.translateTrend(data.trend_description)}`;
+            }
+            
+            // 统计
+            const hpEl = document.getElementById(`hp-${playerId}`);
+            if (hpEl) hpEl.textContent = `${Math.round(state.health)}%`;
+            
+            const levelEl = document.getElementById(`level-${playerId}`);
+            if (levelEl) levelEl.textContent = `Lv.${state.level}`;
+            
+            const statusEl = document.getElementById(`status-${playerId}`);
+            if (statusEl) {
+                if (data.value < 3.9) statusEl.textContent = '⚡';
+                else if (data.value <= 7.8) statusEl.textContent = '🔨';
+                else if (data.value <= 11.1) statusEl.textContent = '⚔️';
+                else statusEl.textContent = '🔥';
+            }
+        }
+        
+        // ========== 控制函数 ==========
+        function onSliderChange(playerId, value) {
+            const label = document.getElementById(`slider-value-${playerId}`);
+            if (label) label.textContent = `${value} mmol/L`;
+            api.setDemoValue(playerId, parseFloat(value));
+        }
+        
+        // 应用模式（不保存）
+        async function applyMode(mode) {
+            document.getElementById('btn-live').classList.toggle('active', mode === 'live');
+            document.getElementById('btn-demo').classList.toggle('active', mode === 'demo');
+            document.getElementById('demo-panel').classList.toggle('visible', mode === 'demo');
+            
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            
+            if (mode === 'live') {
+                statusDot.classList.remove('error');
+                statusText.textContent = '加载历史数据...';
+                
+                // 加载最近3小时的历史数据
+                if (glucoseChart) {
+                    const loaded = await glucoseChart.loadHistoryFromAPI();
+                    if (loaded) {
+                        statusText.textContent = '已加载历史数据';
+                    } else {
+                        statusText.textContent = '历史数据加载失败';
+                    }
+                }
+                
+                // 开始定期获取数据
+                if (dataFetchLoop) clearInterval(dataFetchLoop);
+                dataFetchLoop = setInterval(async () => {
+                    const result = await api.fetchLiveAllData();
+                    if (result.success) {
+                        statusText.textContent = '已连接 · ' + new Date().toLocaleTimeString();
+                    } else {
+                        statusDot.classList.add('error');
+                        statusText.textContent = '连接失败';
+                    }
+                }, DATA_FETCH_INTERVAL);
+            } else {
+                statusDot.classList.add('error');
+                statusText.textContent = 'Demo 模式';
+                
+                // 清空曲线图（Demo 模式从零开始）
+                if (glucoseChart) glucoseChart.clear();
+                
+                if (dataFetchLoop) {
+                    clearInterval(dataFetchLoop);
+                    dataFetchLoop = null;
+                }
+            }
+        }
+        
+        function setMode(mode) {
+            api.setMode(mode);  // 保存到 localStorage
+            applyMode(mode);
+        }
+        
+        function resetGame() {
+            // 重置城堡
+            Object.values(castleGames).forEach(game => game.reset());
+            
+            // 重置当前血糖数据
+            api.getPlayers().forEach(p => {
+                currentGlucose[p.id] = 5.6;
+            });
+            
+            // 清空曲线图
+            if (glucoseChart) glucoseChart.clear();
+            
+            // 重置滑块
+            api.getPlayers().forEach(p => {
+                const slider = document.getElementById(`slider-${p.id}`);
+                const label = document.getElementById(`slider-value-${p.id}`);
+                if (slider) slider.value = 5.6;
+                if (label) label.textContent = '5.6 mmol/L';
+                api.setDemoValue(p.id, 5.6);
+            });
+            
+            renderLeaderboard();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pause-btn');
+            btn.textContent = isPaused ? '▶️ 继续' : '⏸️ 暂停';
+            
+            // 暂停/恢复城堡动画
+            Object.values(castleGames).forEach(game => {
+                if (isPaused) game.stop();
+                else game.start();
+            });
+        }
+        
+        // ========== 启动 ==========
+        init();
+    </script>
+</body>
+</html>

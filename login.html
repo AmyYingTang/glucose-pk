@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 血糖PK</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-icon {
+            font-size: 64px;
+            margin-bottom: 10px;
+        }
+        
+        .logo h1 {
+            color: white;
+            font-size: 28px;
+            font-weight: 600;
+        }
+        
+        .logo p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .tab.active {
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            color: white;
+        }
+        
+        .tab:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #00b894;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .passkey-btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .passkey-btn.primary {
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            color: white;
+            box-shadow: 0 10px 30px rgba(0, 184, 148, 0.3);
+        }
+        
+        .passkey-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 40px rgba(0, 184, 148, 0.4);
+        }
+        
+        .passkey-btn.secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            margin-top: 12px;
+        }
+        
+        .passkey-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        .passkey-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .passkey-icon {
+            font-size: 20px;
+        }
+        
+        .message {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 14px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        
+        .message.error {
+            background: rgba(231, 76, 60, 0.2);
+            color: #e74c3c;
+            border: 1px solid rgba(231, 76, 60, 0.3);
+            display: block;
+        }
+        
+        .message.success {
+            background: rgba(46, 204, 113, 0.2);
+            color: #2ecc71;
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            display: block;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 25px 0;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 13px;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .divider span {
+            padding: 0 15px;
+        }
+        
+        .info-box {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .info-box h4 {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 13px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .info-box p {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .setup-mode {
+            text-align: center;
+            padding: 20px 0;
+        }
+        
+        .setup-mode .icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .setup-mode h3 {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .setup-mode p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        /* 隐藏的面板 */
+        .panel {
+            display: none;
+        }
+        
+        .panel.active {
+            display: block;
+        }
+        
+        /* Loading 状态 */
+        .loading .passkey-btn {
+            pointer-events: none;
+        }
+        
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <div class="logo-icon">🩸</div>
+            <h1>血糖 PK</h1>
+            <p>使用 Passkey 安全登录</p>
+        </div>
+        
+        <div id="message" class="message"></div>
+        
+        <!-- 首次设置模式 -->
+        <div id="setup-panel" class="panel">
+            <div class="setup-mode">
+                <div class="icon">🔐</div>
+                <h3>欢迎！首次设置</h3>
+                <p>这是首次使用，请创建一个管理员账户</p>
+            </div>
+            
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="setup-username" placeholder="输入用户名" value="admin">
+            </div>
+            
+            <div class="form-group">
+                <label>显示名称（可选）</label>
+                <input type="text" id="setup-display-name" placeholder="你的昵称">
+            </div>
+            
+            <button class="passkey-btn primary" onclick="setupFirstUser()">
+                <span class="passkey-icon">🔑</span>
+                创建 Passkey
+            </button>
+            
+            <div class="info-box">
+                <h4>🛡️ 什么是 Passkey？</h4>
+                <p>Passkey 是比密码更安全的登录方式。它使用你设备的生物识别（指纹/面容）或 PIN 码来验证身份，无需记忆密码。</p>
+            </div>
+        </div>
+        
+        <!-- 登录模式 -->
+        <div id="login-panel" class="panel">
+            <button class="passkey-btn primary" onclick="loginWithPasskey()">
+                <span class="passkey-icon">🔑</span>
+                使用 Passkey 登录
+            </button>
+            
+            <div class="divider"><span>或</span></div>
+            
+            <div class="form-group">
+                <label>用户名登录</label>
+                <input type="text" id="login-username" placeholder="输入用户名">
+            </div>
+            
+            <button class="passkey-btn secondary" onclick="loginWithUsername()">
+                指定用户名登录
+            </button>
+            
+            <div class="info-box">
+                <h4>💡 提示</h4>
+                <p>点击上方按钮，使用已注册的 Passkey 登录。支持指纹、面容识别或安全密钥。</p>
+            </div>
+        </div>
+        
+        <!-- 注册新 Passkey -->
+        <div id="register-panel" class="panel">
+            <div class="tabs">
+                <button class="tab active" onclick="showPanel('login')">登录</button>
+                <button class="tab" onclick="showPanel('register')">添加设备</button>
+            </div>
+            
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="register-username" placeholder="输入已有用户名">
+            </div>
+            
+            <div class="form-group">
+                <label>设备名称（可选）</label>
+                <input type="text" id="device-name" placeholder="如：MacBook Pro">
+            </div>
+            
+            <button class="passkey-btn primary" onclick="registerNewDevice()">
+                <span class="passkey-icon">➕</span>
+                添加新 Passkey
+            </button>
+            
+            <div class="info-box">
+                <h4>📱 添加新设备</h4>
+                <p>在新设备上添加 Passkey，无需转移密钥，每个设备都有自己的安全凭据。</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 初始化 ==========
+        async function init() {
+            // 检查浏览器支持
+            if (!window.PublicKeyCredential) {
+                showMessage('你的浏览器不支持 Passkey，请使用现代浏览器', 'error');
+                return;
+            }
+            
+            // 检查是否有用户
+            try {
+                const res = await fetch('/api/auth/status');
+                const data = await res.json();
+                
+                if (data.has_users) {
+                    showPanel('login');
+                } else {
+                    showPanel('setup');
+                }
+                
+                // 如果已登录，跳转
+                if (data.logged_in) {
+                    window.location.href = '/';
+                }
+            } catch (e) {
+                showMessage('无法连接服务器', 'error');
+            }
+        }
+        
+        // ========== UI 辅助 ==========
+        function showPanel(name) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.getElementById(name + '-panel')?.classList.add('active');
+            
+            // 更新 tabs
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            if (name === 'login') {
+                document.querySelector('.tabs .tab:first-child')?.classList.add('active');
+            } else if (name === 'register') {
+                document.querySelector('.tabs .tab:last-child')?.classList.add('active');
+            }
+        }
+        
+        function showMessage(text, type = 'error') {
+            const el = document.getElementById('message');
+            el.textContent = text;
+            el.className = 'message ' + type;
+        }
+        
+        function clearMessage() {
+            document.getElementById('message').className = 'message';
+        }
+        
+        function setLoading(btn, loading) {
+            if (loading) {
+                btn.disabled = true;
+                btn.dataset.originalHtml = btn.innerHTML;
+                btn.innerHTML = '<div class="spinner"></div> 请稍候...';
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = btn.dataset.originalHtml;
+            }
+        }
+        
+        // ========== Base64 URL 编解码 ==========
+        function base64UrlToBuffer(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const padding = '='.repeat((4 - base64.length % 4) % 4);
+            const binary = atob(base64 + padding);
+            return Uint8Array.from(binary, c => c.charCodeAt(0));
+        }
+        
+        function bufferToBase64Url(buffer) {
+            const binary = String.fromCharCode(...new Uint8Array(buffer));
+            const base64 = btoa(binary);
+            return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        
+        // ========== Passkey 操作 ==========
+        
+        // 首次设置
+        async function setupFirstUser() {
+            const username = document.getElementById('setup-username').value.trim();
+            const displayName = document.getElementById('setup-display-name').value.trim();
+            
+            if (!username) {
+                showMessage('请输入用户名', 'error');
+                return;
+            }
+            
+            const btn = event.target;
+            setLoading(btn, true);
+            clearMessage();
+            
+            try {
+                await registerPasskey(username, displayName || username, '首次设置设备');
+                showMessage('✅ 设置成功！正在跳转...', 'success');
+                setTimeout(() => window.location.href = '/', 1000);
+            } catch (e) {
+                showMessage(e.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+        
+        // 注册 Passkey
+        async function registerPasskey(username, displayName, deviceName) {
+            // 1. 获取注册选项
+            const optionsRes = await fetch('/api/auth/register/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, display_name: displayName }),
+            });
+            
+            if (!optionsRes.ok) {
+                const err = await optionsRes.json();
+                throw new Error(err.error || '获取注册选项失败');
+            }
+            
+            const options = await optionsRes.json();
+            
+            // 2. 转换格式
+            options.challenge = base64UrlToBuffer(options.challenge);
+            options.user.id = base64UrlToBuffer(options.user.id);
+            if (options.excludeCredentials) {
+                options.excludeCredentials = options.excludeCredentials.map(c => ({
+                    ...c,
+                    id: base64UrlToBuffer(c.id),
+                }));
+            }
+            
+            // 3. 创建凭据
+            const credential = await navigator.credentials.create({ publicKey: options });
+            
+            // 4. 发送到服务器验证
+            const credentialJson = {
+                id: bufferToBase64Url(credential.rawId),
+                rawId: bufferToBase64Url(credential.rawId),
+                type: credential.type,
+                response: {
+                    clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                    attestationObject: bufferToBase64Url(credential.response.attestationObject),
+                },
+            };
+            
+            const verifyRes = await fetch('/api/auth/register/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    credential: credentialJson,
+                    device_name: deviceName,
+                }),
+            });
+            
+            if (!verifyRes.ok) {
+                const err = await verifyRes.json();
+                throw new Error(err.error || '注册验证失败');
+            }
+            
+            return true;
+        }
+        
+        // 登录（无需用户名）
+        async function loginWithPasskey() {
+            const btn = event.target;
+            setLoading(btn, true);
+            clearMessage();
+            
+            try {
+                await authenticatePasskey();
+                showMessage('✅ 登录成功！', 'success');
+                setTimeout(() => window.location.href = '/', 500);
+            } catch (e) {
+                showMessage(e.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+        
+        // 指定用户名登录
+        async function loginWithUsername() {
+            const username = document.getElementById('login-username').value.trim();
+            if (!username) {
+                showMessage('请输入用户名', 'error');
+                return;
+            }
+            
+            const btn = event.target;
+            setLoading(btn, true);
+            clearMessage();
+            
+            try {
+                await authenticatePasskey(username);
+                showMessage('✅ 登录成功！', 'success');
+                setTimeout(() => window.location.href = '/', 500);
+            } catch (e) {
+                showMessage(e.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+        
+        // 认证 Passkey
+        async function authenticatePasskey(username = null) {
+            // 1. 获取认证选项
+            const optionsRes = await fetch('/api/auth/login/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username }),
+            });
+            
+            if (!optionsRes.ok) {
+                const err = await optionsRes.json();
+                throw new Error(err.error || '获取登录选项失败');
+            }
+            
+            const options = await optionsRes.json();
+            
+            // 2. 转换格式
+            options.challenge = base64UrlToBuffer(options.challenge);
+            if (options.allowCredentials) {
+                options.allowCredentials = options.allowCredentials.map(c => ({
+                    ...c,
+                    id: base64UrlToBuffer(c.id),
+                }));
+            }
+            
+            // 3. 获取凭据
+            const credential = await navigator.credentials.get({ publicKey: options });
+            
+            // 4. 发送到服务器验证
+            const credentialJson = {
+                id: bufferToBase64Url(credential.rawId),
+                rawId: bufferToBase64Url(credential.rawId),
+                type: credential.type,
+                response: {
+                    clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                    authenticatorData: bufferToBase64Url(credential.response.authenticatorData),
+                    signature: bufferToBase64Url(credential.response.signature),
+                    userHandle: credential.response.userHandle 
+                        ? bufferToBase64Url(credential.response.userHandle) 
+                        : null,
+                },
+            };
+            
+            const verifyRes = await fetch('/api/auth/login/complete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    credential: credentialJson,
+                }),
+            });
+            
+            if (!verifyRes.ok) {
+                const err = await verifyRes.json();
+                throw new Error(err.error || '登录验证失败');
+            }
+            
+            return await verifyRes.json();
+        }
+        
+        // 添加新设备
+        async function registerNewDevice() {
+            const username = document.getElementById('register-username').value.trim();
+            const deviceName = document.getElementById('device-name').value.trim();
+            
+            if (!username) {
+                showMessage('请输入用户名', 'error');
+                return;
+            }
+            
+            const btn = event.target;
+            setLoading(btn, true);
+            clearMessage();
+            
+            try {
+                await registerPasskey(username, username, deviceName || '新设备');
+                showMessage('✅ 新设备添加成功！', 'success');
+            } catch (e) {
+                showMessage(e.message, 'error');
+            } finally {
+                setLoading(btn, false);
+            }
+        }
+        
+        // 启动
+        init();
+    </script>
+</body>
+</html>

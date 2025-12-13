@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>血糖可视化 - Blood Sugar Visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a3e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+        }
+        
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        /* 顶部区域：动画 + 信息面板并排 */
+        .top-section {
+            display: flex;
+            gap: 15px;
+            width: 100%;
+            align-items: stretch;
+        }
+        
+        /* 视频容器 - 缩小版 */
+        .animation-container {
+            position: relative;
+            width: 180px;
+            min-width: 180px;
+            aspect-ratio: 9/16;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 
+                0 10px 30px rgba(0, 0, 0, 0.5),
+                0 0 50px rgba(100, 150, 255, 0.1);
+            background: #000;
+        }
+        
+        .state-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.8s ease-in-out;
+        }
+        
+        .state-layer.active {
+            opacity: 1;
+        }
+        
+        .state-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .status-overlay {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(10px);
+            padding: 4px 12px;
+            border-radius: 12px;
+            color: white;
+            font-size: 11px;
+            font-weight: 500;
+            z-index: 20;
+            white-space: nowrap;
+        }
+        
+        .trend-overlay {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            font-size: 28px;
+            z-index: 20;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        /* 信息面板 */
+        #info-panel {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px 20px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex: 1;
+        }
+        
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .panel-header h3 {
+            color: #333;
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .live-dot {
+            width: 6px;
+            height: 6px;
+            background: #4CAF50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .live-dot.error {
+            background: #E53935;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        
+        #blood-sugar-value {
+            font-size: 48px;
+            font-weight: 700;
+            transition: color 0.3s ease;
+            line-height: 1;
+        }
+        
+        #blood-sugar-value.normal { color: #0288D1; }
+        #blood-sugar-value.warning { color: #F9A825; }
+        #blood-sugar-value.danger { color: #E53935; }
+        #blood-sugar-value.loading { color: #999; }
+        
+        .unit {
+            font-size: 14px;
+            color: #999;
+            margin-left: 3px;
+        }
+        
+        .unit-toggle {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        
+        .unit-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 12px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .unit-btn.active {
+            background: #0288D1;
+            color: white;
+        }
+        
+        .unit-btn:not(.active) {
+            background: #eee;
+            color: #666;
+        }
+        
+        .unit-btn:hover:not(.active) {
+            background: #ddd;
+        }
+        
+        /* 角色切换 */
+        .character-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .char-btn {
+            padding: 6px 14px;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .char-btn.active {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .char-btn:not(.active) {
+            background: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .char-btn:hover:not(.active) {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        .trend-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 16px;
+            color: #666;
+        }
+        
+        .trend-arrow-display {
+            font-size: 20px;
+        }
+        
+        #status-text {
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+        }
+        
+        #update-time {
+            font-size: 11px;
+            color: #aaa;
+        }
+        
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            margin-top: 3px;
+        }
+        
+        .mode-btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 15px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .mode-btn.active {
+            background: #333;
+            color: white;
+        }
+        
+        .mode-btn:not(.active) {
+            background: #eee;
+            color: #666;
+        }
+        
+        #demo-controls {
+            width: 100%;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            padding-top: 10px;
+            border-top: 1px solid #eee;
+            margin-top: 5px;
+        }
+        
+        #demo-controls.visible {
+            display: flex;
+        }
+        
+        #blood-sugar-slider {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, 
+                #29B6F6 0%, #29B6F6 35%, 
+                #FFC107 35%, #FFC107 65%, 
+                #E53935 65%, #E53935 100%);
+            outline: none;
+            cursor: pointer;
+        }
+        
+        #blood-sugar-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+        
+        .range-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: #aaa;
+        }
+        
+        /* 历史曲线图 */
+        .chart-container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            width: 100%;
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .chart-header h4 {
+            color: #333;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .chart-header span {
+            font-size: 11px;
+            color: #999;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 180px;
+            width: 100%;
+        }
+        
+        .instructions {
+            color: rgba(255,255,255,0.5);
+            font-size: 11px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        
+        /* 小黄鸭容器 */
+        .ducks-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 100;
+        }
+        
+        .duck {
+            position: absolute;
+            bottom: -100px;
+            width: 60px;
+            height: auto;
+            animation: float-up linear infinite;
+            opacity: 0.9;
+        }
+        
+        @keyframes float-up {
+            0% {
+                transform: translateY(0) rotate(0deg);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.9;
+            }
+            90% {
+                opacity: 0.9;
+            }
+            100% {
+                transform: translateY(calc(-100vh - 150px)) rotate(20deg);
+                opacity: 0;
+            }
+        }
+        
+        @keyframes wobble {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-15px); }
+            75% { transform: translateX(15px); }
+        }
+        
+        .duck-wrapper {
+            position: absolute;
+            bottom: -100px;
+            animation: float-up linear infinite;
+        }
+        
+        .duck-wrapper .duck {
+            position: relative;
+            bottom: auto;
+            animation: wobble ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- 小黄鸭浮动动画 -->
+    <div class="ducks-container" id="ducks-container"></div>
+    
+    <div class="container">
+        <!-- 角色切换 -->
+        <div class="character-toggle">
+            <button class="char-btn active" id="btn-monster" onclick="setCharacter('monster')">🐲 小怪兽</button>
+            <button class="char-btn" id="btn-duck" onclick="setCharacter('duck')">🦆 小黄鸭</button>
+        </div>
+        
+        <!-- 顶部：动画 + 信息面板 -->
+        <div class="top-section">
+            <!-- 缩小的动画区域 -->
+            <div class="animation-container">
+                <div class="state-layer state-normal active" id="state-normal">
+                    <video class="state-video" id="video-normal" loop muted autoplay playsinline src="monster_normal.mp4"></video>
+                    <div class="status-overlay">😊 正常</div>
+                </div>
+                
+                <div class="state-layer state-warning" id="state-warning">
+                    <video class="state-video" id="video-warning" loop muted autoplay playsinline src="monster_warning.mp4"></video>
+                    <div class="status-overlay">😟 偏高</div>
+                </div>
+                
+                <div class="state-layer state-danger" id="state-danger">
+                    <video class="state-video" id="video-danger" loop muted autoplay playsinline src="monster_danger.mp4"></video>
+                    <div class="status-overlay">😰 危险</div>
+                </div>
+                
+                <div class="trend-overlay" id="trend-arrow-overlay"></div>
+            </div>
+            
+            <!-- 信息面板 -->
+            <div id="info-panel">
+                <div class="panel-header">
+                    <h3>血糖监测</h3>
+                    <div class="live-indicator">
+                        <div class="live-dot" id="live-dot"></div>
+                        <span id="connection-status">连接中...</span>
+                    </div>
+                </div>
+                
+                <div>
+                    <span id="blood-sugar-value" class="loading">--</span>
+                    <span class="unit" id="unit-display">mmol/L</span>
+                </div>
+                
+                <div class="unit-toggle">
+                    <button class="unit-btn active" id="btn-mmol" onclick="setUnit('mmol')">mmol/L</button>
+                    <button class="unit-btn" id="btn-mgdl" onclick="setUnit('mgdl')">mg/dL</button>
+                </div>
+                
+                <div class="trend-info">
+                    <span class="trend-arrow-display" id="trend-arrow-display"></span>
+                    <span id="trend-description"></span>
+                </div>
+                
+                <div id="status-text">正在获取数据...</div>
+                <div id="update-time"></div>
+                
+                <div class="mode-toggle">
+                    <button class="mode-btn active" id="btn-live" onclick="setMode('live')">实时</button>
+                    <button class="mode-btn" id="btn-demo" onclick="setMode('demo')">Demo</button>
+                </div>
+                
+                <div id="demo-controls">
+                    <input type="range" id="blood-sugar-slider" min="70" max="300" value="100">
+                    <div class="range-labels">
+                        <span>70</span>
+                        <span>140</span>
+                        <span>200</span>
+                        <span>300</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 历史曲线图 -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4>📈 历史曲线（3小时）</h4>
+                <span id="chart-status">加载中...</span>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="glucose-chart"></canvas>
+            </div>
+        </div>
+        
+        <p class="instructions">
+            数据每 30 秒刷新 · 曲线每 2 分钟更新
+        </p>
+    </div>
+
+    <script>
+        // DOM 元素
+        const valueDisplay = document.getElementById('blood-sugar-value');
+        const statusText = document.getElementById('status-text');
+        const updateTime = document.getElementById('update-time');
+        const trendArrowOverlay = document.getElementById('trend-arrow-overlay');
+        const trendArrowDisplay = document.getElementById('trend-arrow-display');
+        const trendDescription = document.getElementById('trend-description');
+        const liveDot = document.getElementById('live-dot');
+        const connectionStatus = document.getElementById('connection-status');
+        const slider = document.getElementById('blood-sugar-slider');
+        const demoControls = document.getElementById('demo-controls');
+        const chartStatus = document.getElementById('chart-status');
+        
+        const stateNormal = document.getElementById('state-normal');
+        const stateWarning = document.getElementById('state-warning');
+        const stateDanger = document.getElementById('state-danger');
+        
+        let currentMode = 'live';
+        let fetchInterval = null;
+        let chartInterval = null;
+        let glucoseChart = null;
+        
+        // 角色设置：默认小怪兽
+        let currentCharacter = 'monster';
+        
+        function setCharacter(character) {
+            currentCharacter = character;
+            
+            // 更新按钮状态
+            document.getElementById('btn-monster').classList.toggle('active', character === 'monster');
+            document.getElementById('btn-duck').classList.toggle('active', character === 'duck');
+            
+            // 更新视频源
+            const videoNormal = document.getElementById('video-normal');
+            const videoWarning = document.getElementById('video-warning');
+            const videoDanger = document.getElementById('video-danger');
+            
+            videoNormal.src = `${character}_normal.mp4`;
+            videoWarning.src = `${character}_warning.mp4`;
+            videoDanger.src = `${character}_danger.mp4`;
+            
+            // 重新加载并播放
+            videoNormal.load();
+            videoWarning.load();
+            videoDanger.load();
+            videoNormal.play();
+            videoWarning.play();
+            videoDanger.play();
+        }
+        
+        // 单位设置：默认 mmol/L
+        let useMMOL = true;
+        let currentValueMgDl = null;  // 保存当前 mg/dL 值
+        
+        function setUnit(unit) {
+            useMMOL = (unit === 'mmol');
+            
+            // 更新按钮状态
+            document.getElementById('btn-mmol').classList.toggle('active', useMMOL);
+            document.getElementById('btn-mgdl').classList.toggle('active', !useMMOL);
+            document.getElementById('unit-display').textContent = useMMOL ? 'mmol/L' : 'mg/dL';
+            
+            // 更新显示的数值
+            if (currentValueMgDl !== null) {
+                if (useMMOL) {
+                    valueDisplay.textContent = (currentValueMgDl / 18).toFixed(1);
+                } else {
+                    valueDisplay.textContent = currentValueMgDl;
+                }
+            }
+            
+            // 更新图表
+            if (glucoseChart) {
+                updateChartUnit();
+            }
+        }
+        
+        function formatValue(mgDlValue) {
+            if (useMMOL) {
+                return (mgDlValue / 18).toFixed(1);
+            }
+            return mgDlValue;
+        }
+        
+        const statusMessages = {
+            normal: ['血糖正常，继续保持！', '状态良好 ~', '完美！'],
+            warning: ['血糖偏高，注意饮食', '建议适当运动'],
+            danger: ['血糖过高！请处理', '危险！请咨询医生']
+        };
+        
+        const trendTranslations = {
+            'rising quickly': '快速上升',
+            'rising': '上升',
+            'rising slightly': '缓慢上升',
+            'steady': '平稳',
+            'falling slightly': '缓慢下降',
+            'falling': '下降',
+            'falling quickly': '快速下降',
+        };
+        
+        function getRandomMessage(arr) {
+            return arr[Math.floor(Math.random() * arr.length)];
+        }
+        
+        function updateDisplay(value, trendArrow = '', trendDesc = '', datetime = null) {
+            currentValueMgDl = value;  // 保存原始值
+            valueDisplay.textContent = formatValue(value);
+            trendArrowOverlay.textContent = trendArrow;
+            trendArrowDisplay.textContent = trendArrow;
+            trendDescription.textContent = trendTranslations[trendDesc] || trendDesc;
+            
+            stateNormal.classList.remove('active');
+            stateWarning.classList.remove('active');
+            stateDanger.classList.remove('active');
+            
+            if (value < 140) {
+                stateNormal.classList.add('active');
+                valueDisplay.className = 'normal';
+                statusText.textContent = getRandomMessage(statusMessages.normal);
+            } else if (value < 200) {
+                stateWarning.classList.add('active');
+                valueDisplay.className = 'warning';
+                statusText.textContent = getRandomMessage(statusMessages.warning);
+            } else {
+                stateDanger.classList.add('active');
+                valueDisplay.className = 'danger';
+                statusText.textContent = getRandomMessage(statusMessages.danger);
+            }
+            
+            if (datetime) {
+                const date = new Date(datetime);
+                updateTime.textContent = `数据时间: ${date.toLocaleTimeString('zh-CN')}`;
+            }
+        }
+        
+        async function fetchGlucose() {
+            try {
+                const response = await fetch('/api/glucose');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    updateDisplay(data.value, data.trend_arrow, data.trend_description, data.datetime);
+                    liveDot.classList.remove('error');
+                    connectionStatus.textContent = '已连接';
+                } else {
+                    connectionStatus.textContent = result.error;
+                    liveDot.classList.add('error');
+                }
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                connectionStatus.textContent = '连接失败';
+                liveDot.classList.add('error');
+            }
+        }
+        
+        // ========== 历史曲线图 ==========
+        let historyDataMgDl = [];  // 保存原始 mg/dL 数据
+        
+        function getChartConfig() {
+            const minVal = useMMOL ? 3.3 : 60;
+            const maxVal = useMMOL ? 13.9 : 250;
+            const normalHigh = useMMOL ? 7.8 : 140;
+            const dangerHigh = useMMOL ? 11.1 : 200;
+            const unit = useMMOL ? 'mmol/L' : 'mg/dL';
+            
+            return { minVal, maxVal, normalHigh, dangerHigh, unit };
+        }
+        
+        function updateChartUnit() {
+            if (!glucoseChart || historyDataMgDl.length === 0) return;
+            
+            const config = getChartConfig();
+            
+            // 转换数据
+            const convertedValues = historyDataMgDl.map(v => 
+                useMMOL ? parseFloat((v / 18).toFixed(1)) : v
+            );
+            
+            glucoseChart.data.datasets[0].data = convertedValues;
+            glucoseChart.options.scales.y.min = config.minVal;
+            glucoseChart.options.scales.y.max = config.maxVal;
+            glucoseChart.update('none');
+        }
+        
+        function initChart() {
+            const ctx = document.getElementById('glucose-chart').getContext('2d');
+            const config = getChartConfig();
+            
+            glucoseChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '血糖 mg/dL',
+                        data: [],
+                        borderColor: '#0288D1',
+                        backgroundColor: 'rgba(2, 136, 209, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: (items) => items[0].label,
+                                label: (item) => `${item.raw} ${useMMOL ? 'mmol/L' : 'mg/dL'}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { 
+                                font: { size: 10 },
+                                maxTicksLimit: 6
+                            }
+                        },
+                        y: {
+                            min: config.minVal,
+                            max: config.maxVal,
+                            grid: { color: 'rgba(0,0,0,0.05)' },
+                            ticks: { font: { size: 10 } }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    }
+                },
+                plugins: [{
+                    // 绘制参考区域
+                    beforeDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const yAxis = chart.scales.y;
+                        const xAxis = chart.scales.x;
+                        const cfg = getChartConfig();
+                        
+                        // 正常区域 - 浅蓝
+                        ctx.fillStyle = 'rgba(2, 136, 209, 0.08)';
+                        const yNormalHigh = yAxis.getPixelForValue(cfg.normalHigh);
+                        const yMin = yAxis.getPixelForValue(cfg.minVal);
+                        ctx.fillRect(xAxis.left, yNormalHigh, xAxis.width, yMin - yNormalHigh);
+                        
+                        // 警告区域 - 浅黄
+                        ctx.fillStyle = 'rgba(249, 168, 37, 0.1)';
+                        const yDangerHigh = yAxis.getPixelForValue(cfg.dangerHigh);
+                        ctx.fillRect(xAxis.left, yDangerHigh, xAxis.width, yNormalHigh - yDangerHigh);
+                        
+                        // 危险区域 - 浅红
+                        ctx.fillStyle = 'rgba(229, 57, 53, 0.1)';
+                        const yMax = yAxis.getPixelForValue(cfg.maxVal);
+                        ctx.fillRect(xAxis.left, yMax, xAxis.width, yDangerHigh - yMax);
+                    }
+                }]
+            });
+        }
+        
+        async function fetchHistory() {
+            try {
+                const response = await fetch('/api/glucose/history');
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const data = result.data.reverse(); // 按时间正序
+                    
+                    const labels = data.map(d => {
+                        const date = new Date(d.datetime);
+                        return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    });
+                    
+                    // 保存原始 mg/dL 数据
+                    historyDataMgDl = data.map(d => d.value);
+                    
+                    // 转换显示值
+                    const values = historyDataMgDl.map(v => 
+                        useMMOL ? parseFloat((v / 18).toFixed(1)) : v
+                    );
+                    
+                    // 根据最新值改变曲线颜色
+                    const latestValue = historyDataMgDl[historyDataMgDl.length - 1];
+                    let lineColor = '#0288D1'; // 蓝色-正常
+                    if (latestValue >= 200) {
+                        lineColor = '#E53935'; // 红色-危险
+                    } else if (latestValue >= 140) {
+                        lineColor = '#F9A825'; // 黄色-警告
+                    }
+                    
+                    glucoseChart.data.labels = labels;
+                    glucoseChart.data.datasets[0].data = values;
+                    glucoseChart.data.datasets[0].borderColor = lineColor;
+                    glucoseChart.update('none');
+                    
+                    chartStatus.textContent = `${data.length} 条数据`;
+                } else {
+                    chartStatus.textContent = '暂无数据';
+                }
+            } catch (error) {
+                console.error('获取历史数据失败:', error);
+                chartStatus.textContent = '加载失败';
+            }
+        }
+        
+        function setMode(mode) {
+            currentMode = mode;
+            
+            document.getElementById('btn-live').classList.toggle('active', mode === 'live');
+            document.getElementById('btn-demo').classList.toggle('active', mode === 'demo');
+            demoControls.classList.toggle('visible', mode === 'demo');
+            
+            if (mode === 'live') {
+                fetchGlucose();
+                fetchHistory();
+                fetchInterval = setInterval(fetchGlucose, 30000);
+                chartInterval = setInterval(fetchHistory, 120000); // 2分钟更新曲线
+                connectionStatus.textContent = '连接中...';
+                liveDot.classList.remove('error');
+            } else {
+                if (fetchInterval) clearInterval(fetchInterval);
+                if (chartInterval) clearInterval(chartInterval);
+                fetchInterval = null;
+                chartInterval = null;
+                connectionStatus.textContent = 'Demo 模式';
+                liveDot.classList.add('error');
+                updateTime.textContent = '';
+                updateDisplay(parseInt(slider.value), '→', 'steady');
+            }
+        }
+        
+        slider.addEventListener('input', (e) => {
+            if (currentMode === 'demo') {
+                updateDisplay(parseInt(e.target.value), '→', 'steady');
+            }
+        });
+        
+        // 初始化
+        initChart();
+        setMode('live');
+        
+        // ========== 小黄鸭动画 ==========
+        const ducksContainer = document.getElementById('ducks-container');
+        
+        function createDuck() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'duck-wrapper';
+            
+            const duck = document.createElement('img');
+            duck.src = 'yellowduck.png';
+            duck.className = 'duck';
+            
+            const size = 35 + Math.random() * 30;
+            const left = Math.random() * (window.innerWidth - size);
+            const duration = 10 + Math.random() * 8;
+            const wobbleDuration = 2 + Math.random() * 2;
+            const delay = Math.random() * 2;
+            
+            duck.style.width = size + 'px';
+            duck.style.animationDuration = wobbleDuration + 's';
+            
+            wrapper.style.left = left + 'px';
+            wrapper.style.animationDuration = duration + 's';
+            wrapper.style.animationDelay = delay + 's';
+            
+            wrapper.appendChild(duck);
+            ducksContainer.appendChild(wrapper);
+            
+            setTimeout(() => wrapper.remove(), (duration + delay) * 1000);
+        }
+        
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => createDuck(), i * 2000);
+        }
+        
+        setInterval(() => {
+            if (ducksContainer.children.length < 4) {
+                createDuck();
+            }
+        }, 4000);
+    </script>
+</body>
+</html>

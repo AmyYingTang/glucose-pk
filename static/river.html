@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>血糖PK - 漂流冒险</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #87CEEB 100%);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 15px;
+            background: rgba(255,255,255,0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #2c5f7c;
+            text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+        }
+        
+        .header p {
+            font-size: 13px;
+            color: #4a8ba8;
+            margin-top: 5px;
+        }
+        
+        /* 场景导航 */
+        .scene-nav {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .scene-link {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            text-decoration: none;
+            color: #2c5f7c;
+            background: rgba(255,255,255,0.5);
+            transition: all 0.3s;
+        }
+        
+        .scene-link:hover {
+            background: rgba(255,255,255,0.8);
+        }
+        
+        .scene-link.active {
+            background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+        }
+        
+        /* 模式切换 */
+        .mode-toggle {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .mode-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: rgba(255,255,255,0.5);
+            color: #2c5f7c;
+        }
+        
+        .mode-btn.active {
+            background: rgba(255,255,255,0.95);
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        /* 游戏规则 */
+        .rules-panel {
+            max-width: 600px;
+            margin: 0 auto 15px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+        
+        .rules-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 20px;
+            cursor: pointer;
+            background: rgba(255,255,255,0.5);
+        }
+        
+        .rules-header:hover {
+            background: rgba(255,255,255,0.8);
+        }
+        
+        .rules-header h4 {
+            font-size: 14px;
+            color: #2c5f7c;
+        }
+        
+        .rules-toggle {
+            font-size: 12px;
+            transition: transform 0.3s;
+            color: #2c5f7c;
+        }
+        
+        .rules-panel.collapsed .rules-toggle {
+            transform: rotate(-90deg);
+        }
+        
+        .rules-content {
+            padding: 15px 20px;
+            font-size: 12px;
+            line-height: 1.8;
+            color: #2c5f7c;
+            max-height: 200px;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+        }
+        
+        .rules-panel.collapsed .rules-content {
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        
+        .rule-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 4px 0;
+        }
+        
+        .rule-icon {
+            font-size: 16px;
+            width: 24px;
+            text-align: center;
+        }
+        
+        /* 河流游戏区域 */
+        .river-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* 每个玩家的泳道 */
+        .lane {
+            position: relative;
+            height: 120px;
+            margin-bottom: 15px;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        /* 河流背景 - 会移动 */
+        .river-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                90deg,
+                #5AB9D3 0px,
+                #3AAFCF 50px,
+                #5AB9D3 100px
+            );
+            animation: flow 4s linear infinite;
+        }
+        
+        .lane.slow .river-bg {
+            animation-duration: 8s;
+        }
+        
+        .lane.fast .river-bg {
+            animation-duration: 2s;
+        }
+        
+        .lane.danger .river-bg {
+            animation-duration: 1s;
+            background: repeating-linear-gradient(
+                90deg,
+                #E88A5A 0px,
+                #D4734A 50px,
+                #E88A5A 100px
+            );
+        }
+        
+        @keyframes flow {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        
+        /* 水波纹 */
+        .water-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                90deg,
+                transparent 0px,
+                transparent 48px,
+                rgba(255,255,255,0.2) 48px,
+                rgba(255,255,255,0.2) 52px
+            );
+            animation: flow 4s linear infinite;
+        }
+        
+        .lane.slow .water-lines {
+            animation-duration: 8s;
+        }
+        
+        .lane.fast .water-lines {
+            animation-duration: 2s;
+        }
+        
+        .lane.danger .water-lines {
+            animation-duration: 1s;
+        }
+        
+        /* 河岸 */
+        .riverbank-top, .riverbank-bottom {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 15px;
+            z-index: 5;
+        }
+        
+        .riverbank-top {
+            top: 0;
+            background: linear-gradient(180deg, #7CB342 0%, #8BC34A 60%, transparent 100%);
+        }
+        
+        .riverbank-bottom {
+            bottom: 0;
+            background: linear-gradient(0deg, #7CB342 0%, #8BC34A 60%, transparent 100%);
+        }
+        
+        /* 玩家信息栏 */
+        .lane-info {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 8px 15px;
+            border-radius: 25px;
+            z-index: 10;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+        }
+        
+        .lane-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .lane-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .lane-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .lane-glucose {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .lane-glucose.normal { color: #4CAF50; }
+        .lane-glucose.warning { color: #FF9800; }
+        .lane-glucose.danger { color: #f44336; }
+        .lane-glucose.low { color: #2196F3; }
+        
+        /* 分数显示 */
+        .lane-score {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.95);
+            padding: 10px 20px;
+            border-radius: 20px;
+            z-index: 10;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .score-icon {
+            font-size: 20px;
+        }
+        
+        .score-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #FFB800;
+        }
+        
+        /* 距离显示 */
+        .lane-distance {
+            position: absolute;
+            right: 120px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            z-index: 10;
+        }
+        
+        /* 漂流者 */
+        .floater {
+            position: absolute;
+            left: 200px;
+            width: 50px;
+            height: 50px;
+            z-index: 8;
+            transition: top 0.3s ease-out;
+        }
+        
+        .floater-img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+            animation: bob 0.8s ease-in-out infinite;
+        }
+        
+        .lane.slow .floater-img {
+            animation: bob 1.5s ease-in-out infinite;
+            opacity: 0.8;
+        }
+        
+        .lane.danger .floater-img {
+            animation: bob 0.3s ease-in-out infinite, shake 0.1s ease-in-out infinite;
+        }
+        
+        @keyframes bob {
+            0%, 100% { transform: rotate(-5deg); }
+            50% { transform: rotate(5deg); }
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+        
+        /* 收集物 */
+        .collectible {
+            position: absolute;
+            font-size: 28px;
+            z-index: 7;
+            transition: transform 0.2s, opacity 0.2s;
+        }
+        
+        .collectible.collected {
+            transform: scale(1.5);
+            opacity: 0;
+        }
+        
+        /* 收集特效 */
+        .collect-effect {
+            position: absolute;
+            font-size: 16px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            z-index: 20;
+            animation: floatUp 0.8s ease-out forwards;
+            pointer-events: none;
+        }
+        
+        @keyframes floatUp {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-30px) scale(1.5); }
+        }
+        
+        /* 曲线图 */
+        .chart-section {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+        
+        .chart-container {
+            background: rgba(255,255,255,0.9);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .chart-header h4 {
+            color: #2c5f7c;
+            font-size: 14px;
+        }
+        
+        .chart-legend {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .legend-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .chart-wrapper {
+            position: relative;
+            height: 180px;
+        }
+        
+        /* 排行榜 */
+        .leaderboard {
+            max-width: 400px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.9);
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+        
+        .leaderboard h4 {
+            text-align: center;
+            color: #2c5f7c;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .lb-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+        }
+        
+        .lb-item.first {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: white;
+        }
+        
+        .lb-rank {
+            font-size: 18px;
+            font-weight: bold;
+            width: 30px;
+            text-align: center;
+        }
+        
+        .lb-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .lb-name {
+            flex: 1;
+            font-weight: 600;
+        }
+        
+        .lb-score {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .lb-item.first .lb-score {
+            color: white;
+        }
+        
+        /* Demo 控制 */
+        .demo-panel {
+            max-width: 500px;
+            margin: 20px auto;
+            background: rgba(255,255,255,0.8);
+            border-radius: 15px;
+            padding: 20px;
+            display: none;
+        }
+        
+        .demo-panel.visible {
+            display: block;
+        }
+        
+        .demo-panel h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+            color: #2c5f7c;
+        }
+        
+        .demo-slider-group {
+            margin-bottom: 15px;
+        }
+        
+        .demo-slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #333;
+        }
+        
+        .slider-player {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .slider-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        
+        .demo-slider {
+            width: 100%;
+            height: 10px;
+            border-radius: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, 
+                #2196F3 0%, #2196F3 8%,
+                #4CAF50 8%, #4CAF50 36%, 
+                #FF9800 36%, #FF9800 60%, 
+                #f44336 60%, #f44336 100%);
+            outline: none;
+            cursor: pointer;
+        }
+        
+        .demo-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        
+        /* 控制按钮 */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .control-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .control-btn.primary {
+            background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+        }
+        
+        .control-btn.primary:hover {
+            transform: translateY(-2px);
+        }
+        
+        .control-btn.secondary {
+            background: rgba(255,255,255,0.8);
+            color: #2c5f7c;
+        }
+        
+        /* 状态栏 */
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+            color: #2c5f7c;
+            margin-top: 15px;
+            padding-bottom: 20px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.error {
+            background: #FF9800;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌊 漂流冒险</h1>
+        <p>保持血糖平稳，漂得更快更远！</p>
+    </div>
+    
+    <!-- 场景导航 -->
+    <div class="scene-nav">
+        <a href="pk.html" class="scene-link">🏃 赛跑</a>
+        <a href="castle.html" class="scene-link">⚔️ 城堡</a>
+        <a href="river.html" class="scene-link active">🌊 漂流</a>
+    </div>
+    
+    <!-- 模式切换 -->
+    <div class="mode-toggle">
+        <button class="mode-btn" id="btn-live" onclick="setMode('live')">🔴 实时</button>
+        <button class="mode-btn active" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>
+    </div>
+    
+    <!-- 游戏规则 -->
+    <div class="rules-panel collapsed" id="rules-panel">
+        <div class="rules-header" onclick="toggleRules()">
+            <h4>📜 游戏规则</h4>
+            <span class="rules-toggle">▼</span>
+        </div>
+        <div class="rules-content">
+            <div class="rule-item"><span class="rule-icon">🎯</span> 血糖 3.9-7.8：水流速度适中，稳定收集金币</div>
+            <div class="rule-item"><span class="rule-icon">🌊</span> 血糖 > 7.8：水流加速，漂得更快但不稳定</div>
+            <div class="rule-item"><span class="rule-icon">🐌</span> 血糖 < 3.9：水流缓慢，前进速度降低</div>
+            <div class="rule-item"><span class="rule-icon">🏆</span> 比拼：谁收集的金币最多、漂得最远！</div>
+        </div>
+    </div>
+    
+    <!-- 河流泳道 -->
+    <div class="river-container" id="lanes-container">
+        <!-- 动态生成 -->
+    </div>
+    
+    <!-- 排行榜 -->
+    <!--<div class="leaderboard">
+        <h4>🏆 排行榜</h4>
+        <div id="leaderboard-list"></div>
+    </div>-->
+    
+    <!-- 曲线图 -->
+    <div class="chart-section">
+        <div class="chart-container">
+            <div class="chart-header">
+                <h4>📈 血糖趋势</h4>
+                <div class="chart-legend" id="chart-legend"></div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="glucose-chart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Demo 控制面板 -->
+    <div class="demo-panel visible" id="demo-panel">
+        <h3>🎮 Demo 模式 - 调整血糖值</h3>
+        <div id="demo-sliders"></div>
+    </div>
+    
+    <!-- 控制按钮 -->
+    <div class="controls">
+        <button class="control-btn primary" onclick="resetGame()">🔄 重新开始</button>
+        <button class="control-btn secondary" onclick="togglePause()" id="pause-btn">⏸️ 暂停</button>
+    </div>
+    
+    <!-- 状态栏 -->
+    <div class="status-bar">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Demo 模式</span>
+    </div>
+
+    <script src="js/glucose-api.js"></script>
+    <script src="js/glucose-chart.js"></script>
+    <script>
+        // ========== 配置 ==========
+        const LANE_HEIGHT = 120;
+        const LANE_PADDING = 15;
+        const FLOATER_SIZE = 50;
+        const OPTIMAL_LOW = 3.9;
+        const OPTIMAL_HIGH = 7.8;
+        const UPDATE_INTERVAL = 50;
+        const COLLECTIBLE_SPAWN_INTERVAL = 1500;
+        const CHART_UPDATE_INTERVAL = 120000;
+        
+        // 收集物类型和分数
+        const COLLECTIBLES = [
+            { emoji: '🦐', points: 1, weight: 5 },
+            { emoji: '🐟', points: 2, weight: 3 },
+            { emoji: '🐠', points: 2, weight: 3 },
+            { emoji: '🦑', points: 5, weight: 2 },
+            { emoji: '💎', points: 10, weight: 1 },
+        ];
+        
+        // ========== 状态 ==========
+        let api = new GlucoseAPI();
+        let glucoseChart = null;
+        let players = [];
+        let gameState = {};
+        let collectibles = {};
+        let collectibleId = 0;
+        let isPaused = false;
+        let gameLoop = null;
+        let spawnLoop = null;
+        let chartUpdateTimer = null;
+        
+        // ========== 初始化 ==========
+        async function init() {
+            await api.init();
+            players = api.getPlayers();
+            
+            players.forEach(p => {
+                gameState[p.id] = {
+                    y: LANE_HEIGHT / 2,
+                    score: 0,
+                    distance: 0,
+                    glucose: 5.6
+                };
+                collectibles[p.id] = [];
+            });
+            
+            renderLanes();
+            renderDemoSliders();
+            
+            glucoseChart = new GlucoseChart({
+                canvasId: 'glucose-chart',
+                legendId: 'chart-legend',
+                players: players,
+                maxPoints: 36
+            });
+            glucoseChart.init();
+            
+            const savedMode = api.getMode();
+            applyMode(savedMode);
+            
+            startGame();
+        }
+        
+        // ========== 渲染 ==========
+        function renderLanes() {
+            const container = document.getElementById('lanes-container');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const lane = document.createElement('div');
+                lane.className = 'lane';
+                lane.id = `lane-${player.id}`;
+                lane.innerHTML = `
+                    <div class="river-bg"></div>
+                    <div class="water-lines"></div>
+                    <div class="riverbank-top"></div>
+                    <div class="riverbank-bottom"></div>
+                    
+                    <div class="lane-info">
+                        <img src="${player.avatar}" class="lane-avatar" alt="${player.name}">
+                        <div class="lane-details">
+                            <span class="lane-name">${player.name}</span>
+                            <span class="lane-glucose normal" id="glucose-${player.id}">-- mmol/L</span>
+                        </div>
+                    </div>
+                    
+                    <div class="lane-distance" id="distance-${player.id}">0 m</div>
+                    
+                    <div class="lane-score">
+                        <span class="score-icon">🏆</span>
+                        <span class="score-value" id="score-${player.id}">0</span>
+                    </div>
+                    
+                    <div class="floater" id="floater-${player.id}">
+                        <img src="${player.avatar}" class="floater-img" alt="${player.name}">
+                    </div>
+                    
+                    <div class="collectibles" id="collectibles-${player.id}"></div>
+                `;
+                container.appendChild(lane);
+            });
+        }
+        
+        function renderDemoSliders() {
+            const container = document.getElementById('demo-sliders');
+            container.innerHTML = '';
+            
+            players.forEach(player => {
+                const group = document.createElement('div');
+                group.className = 'demo-slider-group';
+                group.innerHTML = `
+                    <div class="demo-slider-header">
+                        <span class="slider-player">
+                            <img src="${player.avatar}" class="slider-avatar" alt="${player.name}">
+                            ${player.name}
+                        </span>
+                        <span id="slider-value-${player.id}">5.6 mmol/L</span>
+                    </div>
+                    <input type="range" class="demo-slider" 
+                           id="slider-${player.id}"
+                           min="2.8" max="16.7" step="0.1" value="5.6"
+                           oninput="onSliderChange('${player.id}', this.value)">
+                `;
+                container.appendChild(group);
+            });
+        }
+        
+        function renderLeaderboard() {
+            const list = document.getElementById('leaderboard-list');
+            
+            const sorted = players.map(p => ({
+                ...p,
+                score: gameState[p.id].score,
+                distance: gameState[p.id].distance
+            })).sort((a, b) => b.score - a.score || b.distance - a.distance);
+            
+            list.innerHTML = sorted.map((p, i) => `
+                <div class="lb-item ${i === 0 ? 'first' : ''}">
+                    <span class="lb-rank">${i === 0 ? '👑' : i + 1}</span>
+                    <img src="${p.avatar}" class="lb-avatar" alt="${p.name}">
+                    <span class="lb-name">${p.name}</span>
+                    <span class="lb-score">🪙 ${p.score}</span>
+                </div>
+            `).join('');
+        }
+        
+        // ========== 游戏逻辑 ==========
+        function startGame() {
+            gameLoop = setInterval(async () => {
+                if (isPaused) return;
+                await updateGame();
+            }, UPDATE_INTERVAL);
+            
+            spawnLoop = setInterval(() => {
+                if (isPaused) return;
+                spawnCollectibles();
+            }, COLLECTIBLE_SPAWN_INTERVAL);
+            
+            updateChartData();
+            chartUpdateTimer = setInterval(updateChartData, CHART_UPDATE_INTERVAL);
+        }
+        
+        async function updateGame() {
+            const result = await api.getAllPlayersData();
+            if (!result.success) return;
+            
+            Object.entries(result.data).forEach(([playerId, data]) => {
+                const glucose = data.value;
+                const state = gameState[playerId];
+                state.glucose = glucose;
+                
+                let speed = getSpeed(glucose);
+                state.distance += speed * 0.05;
+                
+                // 上下漂移
+                const drift = (Math.random() - 0.5) * 3;
+                state.y = Math.max(LANE_PADDING + 10, Math.min(LANE_HEIGHT - LANE_PADDING - FLOATER_SIZE - 10, state.y + drift));
+                
+                updateLaneUI(playerId, glucose, state);
+                moveAndCheckCollectibles(playerId, speed);
+            });
+            
+            renderLeaderboard();
+        }
+        
+        function getSpeed(glucose) {
+            if (glucose < OPTIMAL_LOW) {
+                return 1 + (glucose / OPTIMAL_LOW) * 1;
+            } else if (glucose <= OPTIMAL_HIGH) {
+                return 3;
+            } else if (glucose <= 11.1) {
+                return 3 + (glucose - OPTIMAL_HIGH) / 3.3 * 2;
+            } else {
+                return 5 + Math.min(2, (glucose - 11.1) / 5);
+            }
+        }
+        
+        function updateLaneUI(playerId, glucose, state) {
+            const glucoseEl = document.getElementById(`glucose-${playerId}`);
+            if (glucoseEl) {
+                glucoseEl.textContent = `${glucose.toFixed(1)} mmol/L`;
+                glucoseEl.className = `lane-glucose ${getGlucoseClass(glucose)}`;
+            }
+            
+            const scoreEl = document.getElementById(`score-${playerId}`);
+            if (scoreEl) scoreEl.textContent = state.score;
+            
+            const distanceEl = document.getElementById(`distance-${playerId}`);
+            if (distanceEl) distanceEl.textContent = `${Math.floor(state.distance)} m`;
+            
+            const floater = document.getElementById(`floater-${playerId}`);
+            if (floater) {
+                floater.style.top = `${state.y}px`;
+            }
+            
+            const lane = document.getElementById(`lane-${playerId}`);
+            if (lane) {
+                lane.classList.remove('slow', 'fast', 'danger');
+                if (glucose < OPTIMAL_LOW) {
+                    lane.classList.add('slow');
+                } else if (glucose > 11.1) {
+                    lane.classList.add('danger');
+                } else if (glucose > OPTIMAL_HIGH) {
+                    lane.classList.add('fast');
+                }
+            }
+        }
+        
+        function spawnCollectibles() {
+            players.forEach(player => {
+                if (Math.random() > 0.7) return;
+                
+                const totalWeight = COLLECTIBLES.reduce((sum, c) => sum + c.weight, 0);
+                let rand = Math.random() * totalWeight;
+                let selected = COLLECTIBLES[0];
+                
+                for (const c of COLLECTIBLES) {
+                    rand -= c.weight;
+                    if (rand <= 0) {
+                        selected = c;
+                        break;
+                    }
+                }
+                
+                const lane = document.getElementById(`lane-${player.id}`);
+                const laneWidth = lane ? lane.offsetWidth : 800;
+                
+                const collectible = {
+                    id: collectibleId++,
+                    emoji: selected.emoji,
+                    points: selected.points,
+                    x: laneWidth + 50,
+                    y: LANE_PADDING + 10 + Math.random() * (LANE_HEIGHT - LANE_PADDING * 2 - FLOATER_SIZE)
+                };
+                
+                collectibles[player.id].push(collectible);
+                renderCollectible(player.id, collectible);
+            });
+        }
+        
+        function renderCollectible(playerId, collectible) {
+            const container = document.getElementById(`collectibles-${playerId}`);
+            if (!container) return;
+            
+            const el = document.createElement('div');
+            el.className = 'collectible';
+            el.id = `collectible-${collectible.id}`;
+            el.textContent = collectible.emoji;
+            el.style.left = `${collectible.x}px`;
+            el.style.top = `${collectible.y}px`;
+            container.appendChild(el);
+        }
+        
+        function moveAndCheckCollectibles(playerId, speed) {
+            const state = gameState[playerId];
+            const floaterX = 200;
+            const floaterY = state.y;
+            
+            collectibles[playerId] = collectibles[playerId].filter(c => {
+                c.x -= speed * 3;
+                
+                const el = document.getElementById(`collectible-${c.id}`);
+                
+                const dx = Math.abs(c.x - floaterX);
+                const dy = Math.abs(c.y - floaterY);
+                
+                if (dx < 40 && dy < 40) {
+                    state.score += c.points;
+                    
+                    if (el) {
+                        el.classList.add('collected');
+                        createCollectEffect(playerId, c.x, c.y, `+${c.points}`);
+                        setTimeout(() => el.remove(), 200);
+                    }
+                    return false;
+                }
+                
+                if (el) {
+                    el.style.left = `${c.x}px`;
+                }
+                
+                if (c.x < -50) {
+                    if (el) el.remove();
+                    return false;
+                }
+                
+                return true;
+            });
+        }
+        
+        function createCollectEffect(playerId, x, y, text) {
+            const lane = document.getElementById(`lane-${playerId}`);
+            if (!lane) return;
+            
+            const effect = document.createElement('div');
+            effect.className = 'collect-effect';
+            effect.textContent = text;
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            lane.appendChild(effect);
+            
+            setTimeout(() => effect.remove(), 800);
+        }
+        
+        function updateChartData() {
+            if (!glucoseChart) return;
+            const chartData = {};
+            players.forEach(p => {
+                chartData[p.id] = gameState[p.id]?.glucose || 5.6;
+            });
+            glucoseChart.addDataPoint(chartData);
+        }
+        
+        // ========== 工具函数 ==========
+        function getGlucoseClass(value) {
+            if (value < 3.9) return 'low';
+            if (value <= 7.8) return 'normal';
+            if (value <= 11.1) return 'warning';
+            return 'danger';
+        }
+        
+        function toggleRules() {
+            document.getElementById('rules-panel').classList.toggle('collapsed');
+        }
+        
+        // ========== 控制函数 ==========
+        function onSliderChange(playerId, value) {
+            const label = document.getElementById(`slider-value-${playerId}`);
+            if (label) label.textContent = `${value} mmol/L`;
+            api.setDemoValue(playerId, parseFloat(value));
+        }
+        
+        async function applyMode(mode) {
+            document.getElementById('btn-live').classList.toggle('active', mode === 'live');
+            document.getElementById('btn-demo').classList.toggle('active', mode === 'demo');
+            document.getElementById('demo-panel').classList.toggle('visible', mode === 'demo');
+            
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            
+            if (mode === 'live') {
+                statusDot.classList.remove('error');
+                statusText.textContent = '加载历史数据...';
+                
+                if (glucoseChart) {
+                    const loaded = await glucoseChart.loadHistoryFromAPI();
+                    statusText.textContent = loaded ? '实时模式' : '历史数据加载失败';
+                }
+            } else {
+                statusDot.classList.add('error');
+                statusText.textContent = 'Demo 模式';
+                if (glucoseChart) glucoseChart.clear();
+            }
+        }
+        
+        function setMode(mode) {
+            api.setMode(mode);
+            applyMode(mode);
+        }
+        
+        function resetGame() {
+            players.forEach(p => {
+                gameState[p.id] = {
+                    y: LANE_HEIGHT / 2,
+                    score: 0,
+                    distance: 0,
+                    glucose: 5.6
+                };
+                
+                collectibles[p.id] = [];
+                const container = document.getElementById(`collectibles-${p.id}`);
+                if (container) container.innerHTML = '';
+                
+                const slider = document.getElementById(`slider-${p.id}`);
+                const label = document.getElementById(`slider-value-${p.id}`);
+                if (slider) slider.value = 5.6;
+                if (label) label.textContent = '5.6 mmol/L';
+                api.setDemoValue(p.id, 5.6);
+            });
+            
+            if (glucoseChart) glucoseChart.clear();
+            renderLeaderboard();
+        }
+        
+        function togglePause() {
+            isPaused = !isPaused;
+            document.getElementById('pause-btn').textContent = isPaused ? '▶️ 继续' : '⏸️ 暂停';
+        }
+        
+        // ========== 启动 ==========
+        init();
+    </script>
+</body>
+</html>

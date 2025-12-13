@@ -1,0 +1,49 @@
+# ==================== 敏感文件 ====================
+# 环境配置（包含密码）
+.env
+
+# 加密密钥
+.secret_key
+
+# Passkey 用户数据
+.passkey_users.json
+
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 虚拟环境
+venv/
+ENV/
+env/
+.venv/
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ==================== 日志 ====================
+*.log
+logs/
