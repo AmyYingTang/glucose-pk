@@ -40,6 +40,20 @@ def _decrypt_if_needed(value: str) -> str:
     return value
 
 
+def _get_password_from_keyring(user_id: str) -> str:
+    """从系统 Keyring 获取密码"""
+    try:
+        import keyring
+        password = keyring.get_password("glucose-pk", user_id)
+        if password:
+            return password
+    except ImportError:
+        pass
+    except Exception as e:
+        print(f"⚠️  从 Keyring 读取密码失败: {e}")
+    return None
+
+
 def _load_users_from_env() -> dict:
     """
     从环境变量动态加载用户配置
@@ -60,17 +74,24 @@ def _load_users_from_env() -> dict:
             name = _get_env(f"USER_{user_num}_NAME")
             username = _get_env(f"USER_{user_num}_USERNAME")
             
-            # 优先使用加密密码，否则使用明文密码
-            password_encrypted = _get_env(f"USER_{user_num}_PASSWORD_ENCRYPTED")
-            password_plain = _get_env(f"USER_{user_num}_PASSWORD")
+            # 获取密码（优先级：Keyring > 加密密码 > 明文密码）
+            password = None
             
-            if password_encrypted:
-                password = _decrypt_if_needed(password_encrypted)
-            elif password_plain:
-                print(f"⚠️  用户 {name} 使用明文密码，建议使用加密密码")
-                password = password_plain
-            else:
-                password = None
+            # 1. 先尝试 Keyring
+            password = _get_password_from_keyring(user_id)
+            
+            # 2. 再尝试 .env 中的加密密码
+            if not password:
+                password_encrypted = _get_env(f"USER_{user_num}_PASSWORD_ENCRYPTED")
+                if password_encrypted:
+                    password = _decrypt_if_needed(password_encrypted)
+            
+            # 3. 最后尝试明文密码（不推荐）
+            if not password:
+                password_plain = _get_env(f"USER_{user_num}_PASSWORD")
+                if password_plain:
+                    print(f"⚠️  用户 {name} 使用明文密码，建议使用 Keyring 或加密密码")
+                    password = password_plain
             
             region = _get_env(f"USER_{user_num}_REGION", "ous")
             avatar = _get_env(f"USER_{user_num}_AVATAR", f"images/avatar{user_num}.svg")

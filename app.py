@@ -1,5 +1,5 @@
 """
-Dexcom 血糖可视化 - Flask 后端（多人版 + Passkey 认证）
+Dexcom 血糖可视化 - Flask 后端（多人版 + Passkey 认证 + 弹幕评论）
 """
 import os
 import functools
@@ -15,6 +15,9 @@ from data_fetcher import (
 )
 from config import USERS, THRESHOLDS, PK_SETTINGS
 
+# 导入评论 API
+from comments_api import comments_bp
+
 # 导入 Passkey 认证模块
 try:
     import passkey_auth
@@ -29,6 +32,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
 app = Flask(__name__, static_folder=STATIC_DIR)
+
+# 注册评论 Blueprint
+app.register_blueprint(comments_bp)
 
 # Session 密钥（生产环境请使用环境变量）
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
@@ -114,20 +120,18 @@ def auth_register_complete():
     data = request.get_json()
     username = data.get("username")
     credential = data.get("credential")
-    device_name = data.get("device_name", "")
     
     if not username or not credential:
-        return jsonify({"error": "缺少参数"}), 400
+        return jsonify({"error": "参数不完整"}), 400
     
     try:
-        passkey_auth.complete_registration(username, credential, device_name)
-        
-        # 自动登录
-        session["logged_in"] = True
-        session["username"] = username
-        session.permanent = True
-        
-        return jsonify({"success": True, "username": username})
+        result = passkey_auth.complete_registration(username, credential)
+        if result:
+            session["logged_in"] = True
+            session["username"] = username
+            return jsonify({"success": True, "message": "注册成功"})
+        else:
+            return jsonify({"error": "注册失败"}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 400
 
@@ -138,7 +142,7 @@ def auth_login_start():
     if not PASSKEY_ENABLED:
         return jsonify({"error": "Passkey 未启用"}), 400
     
-    data = request.get_json()
+    data = request.get_json() or {}
     username = data.get("username")  # 可选
     
     try:
@@ -155,45 +159,28 @@ def auth_login_complete():
         return jsonify({"error": "Passkey 未启用"}), 400
     
     data = request.get_json()
-    username = data.get("username")  # 可选
     credential = data.get("credential")
     
     if not credential:
-        return jsonify({"error": "缺少凭据"}), 400
+        return jsonify({"error": "参数不完整"}), 400
     
     try:
-        user_info = passkey_auth.complete_authentication(credential, username)
-        
-        # 设置登录 session
-        session["logged_in"] = True
-        session["username"] = user_info["username"]
-        session["display_name"] = user_info["display_name"]
-        session.permanent = True
-        
-        return jsonify({
-            "success": True,
-            "username": user_info["username"],
-            "display_name": user_info["display_name"],
-        })
+        username = passkey_auth.complete_authentication(credential)
+        if username:
+            session["logged_in"] = True
+            session["username"] = username
+            return jsonify({"success": True, "username": username})
+        else:
+            return jsonify({"error": "登录失败"}), 401
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 401
 
 
 @app.route('/api/auth/logout', methods=['POST'])
 def auth_logout():
-    """登出"""
+    """退出登录"""
     session.clear()
     return jsonify({"success": True})
-
-
-@app.route('/api/auth/users')
-@login_required
-def auth_users():
-    """获取所有用户（管理用）"""
-    if not PASSKEY_ENABLED:
-        return jsonify({"users": []})
-    
-    return jsonify({"users": passkey_auth.get_all_users()})
 
 
 # ==================== 页面路由 ====================
@@ -201,7 +188,7 @@ def auth_users():
 @app.route('/')
 @login_required
 def index():
-    """单人主页"""
+    """主页"""
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
@@ -212,11 +199,18 @@ def pk_page():
     return send_from_directory(STATIC_DIR, 'pk.html')
 
 
-@app.route('/pk/<scene>')
+@app.route('/river')
 @login_required
-def pk_scene(scene):
-    """特定场景的PK页面"""
-    return send_from_directory(STATIC_DIR, 'pk.html')
+def river_page():
+    """河流主题页面"""
+    return send_from_directory(STATIC_DIR, 'river.html')
+
+
+@app.route('/castle')
+@login_required
+def castle_page():
+    """城堡主题页面"""
+    return send_from_directory(STATIC_DIR, 'castle.html')
 
 
 @app.route('/login.html')
@@ -226,183 +220,83 @@ def login_page():
 
 
 @app.route('/<path:filename>')
-def serve_static(filename):
-    """提供静态文件"""
-    # 登录页和静态资源不需要认证
-    if filename in ['login.html'] or filename.startswith(('js/', 'css/', 'images/')):
+def static_files(filename):
+    """其他静态文件"""
+    # 登录相关页面不需要认证
+    if filename in ['login.html', 'js/passkey-auth.js']:
         return send_from_directory(STATIC_DIR, filename)
     
-    # 其他页面需要认证
+    # 其他静态资源（CSS、JS、图片）不需要认证
+    if filename.endswith(('.css', '.js', '.png', '.jpg', '.gif', '.svg', '.ico', '.mp4', '.webm')):
+        return send_from_directory(STATIC_DIR, filename)
+    
+    # HTML 页面需要认证
     if AUTH_REQUIRED and PASSKEY_ENABLED and not session.get("logged_in"):
-        if filename.endswith('.html'):
-            return redirect("/login.html")
+        return redirect("/login.html")
     
     return send_from_directory(STATIC_DIR, filename)
 
 
-# ==================== 单人 API ====================
+# ==================== 血糖 API ====================
 
-@app.route('/api/glucose')
+@app.route('/api/glucose/current')
 @login_required
-def get_glucose():
-    """获取默认用户（user1）的当前血糖"""
-    result = get_current_glucose("user1")
-    if result["success"]:
-        return jsonify(result)
-    else:
-        return jsonify(result), 500
+def api_current_glucose():
+    """获取当前血糖（单人模式）"""
+    user = request.args.get('user', 'default')
+    data = get_current_glucose(user)
+    return jsonify(data)
 
 
 @app.route('/api/glucose/history')
 @login_required
-def get_history():
-    """获取默认用户（user1）的历史数据"""
-    result = get_glucose_history("user1")
-    if result["success"]:
-        return jsonify(result)
-    else:
-        return jsonify(result), 500
-
-
-# ==================== 多人 API ====================
-
-@app.route('/api/users')
-@login_required
-def api_get_users():
-    """获取所有用户列表"""
-    return jsonify({
-        "success": True,
-        "users": get_user_list()
-    })
-
-
-@app.route('/api/user/<user_id>/glucose')
-@login_required
-def api_user_glucose(user_id):
-    """获取指定用户的当前血糖"""
-    if user_id not in USERS:
-        return jsonify({
-            "success": False,
-            "error": f"用户 {user_id} 不存在"
-        }), 404
-    
-    result = get_current_glucose(user_id)
-    return jsonify(result)
-
-
-@app.route('/api/user/<user_id>/history')
-@login_required
-def api_user_history(user_id):
-    """获取指定用户的历史数据"""
-    if user_id not in USERS:
-        return jsonify({
-            "success": False,
-            "error": f"用户 {user_id} 不存在"
-        }), 404
-    
+def api_glucose_history():
+    """获取血糖历史（单人模式）"""
+    user = request.args.get('user', 'default')
     minutes = request.args.get('minutes', 180, type=int)
-    max_count = request.args.get('max_count', 36, type=int)
-    
-    result = get_glucose_history(user_id, minutes, max_count)
-    return jsonify(result)
+    data = get_glucose_history(user, minutes=minutes)
+    return jsonify(data)
 
 
-@app.route('/api/pk/all')
+@app.route('/api/glucose/all')
 @login_required
-def api_pk_all():
-    """获取所有用户的当前血糖（用于PK）"""
-    results = get_all_users_glucose()
-    return jsonify({
-        "success": True,
-        "timestamp": __import__('datetime').datetime.now().isoformat(),
-        "players": results
-    })
-
-
-@app.route('/api/pk/history')
-@login_required
-def api_pk_history():
-    """获取所有用户的历史血糖数据（用于PK曲线图）"""
-    minutes = request.args.get('minutes', 180, type=int)
-    max_count = request.args.get('max_count', 36, type=int)
-    
-    results = []
-    for user_id in USERS.keys():
-        result = get_glucose_history(user_id, minutes, max_count)
-        results.append(result)
-    
-    return jsonify({
-        "success": True,
-        "timestamp": __import__('datetime').datetime.now().isoformat(),
-        "players": results
-    })
-
-
-@app.route('/api/pk/settings')
-@login_required
-def api_pk_settings():
-    """获取PK游戏设置"""
-    return jsonify({
-        "success": True,
-        "thresholds": THRESHOLDS,
-        "pk_settings": PK_SETTINGS
-    })
-
-
-# ==================== Demo 数据 API ====================
-
-demo_data = {}
-
-@app.route('/api/demo/set', methods=['POST'])
-@login_required
-def set_demo_data():
-    """设置 demo 模式的血糖值（输入 mmol/L）"""
-    data = request.get_json()
-    user_id = data.get('user_id')
-    value = data.get('value')
-    
-    if user_id and value:
-        demo_data[user_id] = {
-            "value": value,
-            "value_mgdl": round(value * 18),
-            "trend_arrow": "→",
-            "trend_description": "steady",
-            "datetime": __import__('datetime').datetime.now().isoformat()
-        }
-        return jsonify({"success": True})
-    
-    return jsonify({"success": False, "error": "缺少参数"}), 400
-
-
-@app.route('/api/demo/all')
-@login_required
-def get_demo_all():
-    """获取所有用户的 demo 数据"""
+def api_all_glucose():
+    """获取所有用户的血糖数据（多人PK模式）"""
     players = []
-    for user_id, info in USERS.items():
-        if user_id in demo_data:
+    
+    for user_id, user_config in USERS.items():
+        glucose_data = get_current_glucose(user_id)
+        
+        if glucose_data.get("success"):
+            value = glucose_data["data"]["mmol_l"]
+            
+            # 判断状态
+            if value < THRESHOLDS["low"]:
+                status = "low"
+            elif value > THRESHOLDS["high"]:
+                status = "high"
+            else:
+                status = "normal"
+            
             players.append({
-                "success": True,
-                "user_id": user_id,
-                "user_name": info["name"],
-                "avatar": info["avatar"],
-                "color": info["color"],
-                "data": demo_data[user_id]
+                "id": user_id,
+                "name": user_config["display_name"],
+                "avatar": user_config.get("avatar", "🙂"),
+                "value": value,
+                "trend": glucose_data["data"].get("trend_arrow", "→"),
+                "status": status,
+                "timestamp": glucose_data["data"].get("datetime")
             })
         else:
             players.append({
-                "success": True,
-                "user_id": user_id,
-                "user_name": info["name"],
-                "avatar": info["avatar"],
-                "color": info["color"],
-                "data": {
-                    "value": 5.6,
-                    "value_mgdl": 100,
-                    "trend_arrow": "→",
-                    "trend_description": "steady",
-                    "datetime": __import__('datetime').datetime.now().isoformat()
-                }
+                "id": user_id,
+                "name": user_config["display_name"],
+                "avatar": user_config.get("avatar", "🙂"),
+                "value": None,
+                "trend": "?",
+                "status": "unknown",
+                "error": glucose_data.get("error"),
+                "timestamp": __import__('datetime').datetime.now().isoformat()
             })
     
     return jsonify({
@@ -412,12 +306,30 @@ def get_demo_all():
     })
 
 
+@app.route('/api/config')
+@login_required
+def api_config():
+    """获取配置信息"""
+    return jsonify({
+        "thresholds": THRESHOLDS,
+        "pk_settings": PK_SETTINGS,
+        "users": {
+            uid: {
+                "display_name": u["display_name"],
+                "avatar": u.get("avatar", "🙂")
+            } for uid, u in USERS.items()
+        }
+    })
+
+
 if __name__ == '__main__':
     print("=" * 50)
     print("血糖可视化服务启动中...")
     print(f"认证模式: {'开启' if AUTH_REQUIRED and PASSKEY_ENABLED else '关闭'}")
     print("单人界面: http://localhost:5010/")
     print("多人PK: http://localhost:5010/pk")
+    print("河流主题: http://localhost:5010/river")
+    print("城堡主题: http://localhost:5010/castle")
     if AUTH_REQUIRED and PASSKEY_ENABLED:
         print("登录页面: http://localhost:5010/login.html")
     print("=" * 50)

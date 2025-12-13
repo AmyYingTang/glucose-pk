@@ -8,8 +8,7 @@ glucose-pk/
 ├── config.py              # 配置加载（从 .env 读取）
 ├── data_fetcher.py        # Dexcom API 数据获取
 ├── passkey_auth.py        # Passkey 认证模块
-├── password_manager.py    # 密码管理工具
-├── crypto_utils.py        # 加密工具
+├── password_manager.py    # 密码管理工具（统一接口）
 ├── requirements.txt       # Python 依赖
 ├── .env.example           # 配置模板
 ├── .gitignore             # Git 忽略文件
@@ -37,7 +36,7 @@ python3 -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 3. 安装依赖
-pip install flask python-dotenv pydexcom py_webauthn cryptography
+pip install -r requirements.txt
 ```
 
 ### 第二步：配置环境变量
@@ -46,64 +45,51 @@ pip install flask python-dotenv pydexcom py_webauthn cryptography
 # 复制配置模板
 cp .env.example .env
 
-# 编辑配置
-nano .env  # 或用你喜欢的编辑器
+# 编辑配置（填写用户信息，密码稍后设置）
+nano .env
 ```
 
-**.env 文件内容：**
+### 第三步：存储 Dexcom 密码
+
+工具会**自动检测环境**，选择最佳存储方式：
+- **Mac/Windows/Linux桌面** → Keyring（系统钥匙串）
+- **Linux 服务器（无 GUI）** → 加密文件
+
+```bash
+# 查看当前环境
+python password_manager.py status
+
+# 存储密码（自动选择后端）
+python password_manager.py set user1
+# 输入密码...
+# ✅ 密码已保存 [keyring]: user1   ← Mac 上
+# ✅ 密码已保存 [encrypted]: user1 ← Linux 服务器上
+
+# 存储第二个用户
+python password_manager.py set user2
+```
+
+**强制指定后端**（可选）：
+```bash
+# 强制使用 Keyring
+python password_manager.py set user1 --backend=keyring
+
+# 强制使用加密文件
+python password_manager.py set user1 --backend=encrypted
+```
+
+**.env 文件配置**：
 
 ```env
-# ==================== Dexcom 用户配置 ====================
-# 用户 1
+# 用户信息（两种后端都需要）
 USER_1_NAME=四香油饼
-USER_1_USERNAME=dexcom_username_1
-USER_1_PASSWORD_ENCRYPTED=<加密后的密码>
+USER_1_USERNAME=your_dexcom_username
 USER_1_REGION=ous
 USER_1_AVATAR=images/coffee.png
 USER_1_COLOR=#0077BB
 
-# 用户 2
-USER_2_NAME=UB
-USER_2_USERNAME=dexcom_username_2
-USER_2_PASSWORD_ENCRYPTED=<加密后的密码>
-USER_2_REGION=ous
-USER_2_AVATAR=images/duck.png
-USER_2_COLOR=#EE7733
-
-# ==================== 应用配置 ====================
-FLASK_PORT=5010
-FLASK_SECRET_KEY=<随机字符串，用于 session 加密>
-
-# ==================== Passkey 认证配置 ====================
-AUTH_REQUIRED=true
-PASSKEY_RP_ID=your-domain.com          # 你的域名
-PASSKEY_RP_NAME=血糖PK
-PASSKEY_ORIGIN=https://your-domain.com  # 完整 URL（生产环境用 https）
-```
-
-### 第三步：加密 Dexcom 密码
-
-```bash
-# 运行密码管理工具
-python password_manager.py
-
-# 选择 1（存储密码）
-# 输入用户 ID：user1
-# 输入 Dexcom 密码：xxxxx
-
-# 如果使用 Fernet 后端，会输出加密字符串
-# 将其复制到 .env 的 USER_1_PASSWORD_ENCRYPTED
-```
-
-**或者批量加密：**
-
-```bash
-python password_manager.py
-# 选择 3（批量设置）
-# 输入：
-user1,password1
-user2,password2
-# 空行结束
+# 如果使用 Keyring：不需要密码字段
+# 如果使用 encrypted：工具会自动添加 USER_1_PASSWORD_ENCRYPTED=...
 ```
 
 ### 第四步：配置 HTTPS（生产环境必须）
@@ -256,18 +242,26 @@ with open('.passkey_users.json', 'r+') as f:
 
 ### Q: 迁移到新服务器？
 
-需要迁移的文件：
+**如果使用 Keyring：**
 ```bash
-# 必须迁移
-.env                    # 配置
-.secret_key             # 加密密钥（如果用 Fernet）
-.passkey_users.json     # Passkey 用户数据
-
-# 可选（如果存储在 Keyring）
-# Keyring 密码需要在新服务器重新设置
+# Keyring 密码不能迁移，需要在新服务器重新设置
 python password_manager.py
-# 重新输入 Dexcom 密码
+# 选择 1，重新输入每个用户的 Dexcom 密码
 ```
+
+**如果使用加密文件：**
+```bash
+# 复制这些文件到新服务器
+scp .env .secret_key .passkey_users.json user@new-server:/path/to/app/
+```
+
+需要迁移的文件清单：
+| 文件 | Keyring 方案 | 加密文件方案 |
+|------|-------------|-------------|
+| `.env` | ✅ 需要 | ✅ 需要 |
+| `.secret_key` | ❌ 不需要 | ✅ 需要 |
+| `.passkey_users.json` | ✅ 需要 | ✅ 需要 |
+| Dexcom 密码 | 🔄 重新设置 | 已在 .env 中 |
 
 ### Q: Passkey 提示"域名不匹配"？
 

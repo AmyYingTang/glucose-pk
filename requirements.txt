@@ -7,11 +7,10 @@ gunicorn>=21.0.0
 pydexcom>=0.2.0
 
 # Passkey 认证 (WebAuthn)
-py_webauthn>=2.0.0
-flask-login>=0.6.0
+webauthn>=2.0.0
 
 # 密码加密
 cryptography>=41.0.0
 
-# 可选：系统 Keyring 存储
+# 系统 Keyring 存储（Mac/Windows 自动可用，Linux 服务器会自动回退到加密文件）
 keyring>=24.0.0
