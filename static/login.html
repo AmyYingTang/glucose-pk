@@ -331,37 +331,42 @@
                 指定用户名登录
             </button>
             
+            <button class="passkey-btn secondary" onclick="showPanel('register')" style="margin-top: 20px; border: 1px dashed rgba(255,255,255,0.3);">
+                <span class="passkey-icon">➕</span>
+                注册新账户
+            </button>
+            
             <div class="info-box">
                 <h4>💡 提示</h4>
                 <p>点击上方按钮，使用已注册的 Passkey 登录。支持指纹、面容识别或安全密钥。</p>
             </div>
         </div>
         
-        <!-- 注册新 Passkey -->
+        <!-- 注册新用户 -->
         <div id="register-panel" class="panel">
             <div class="tabs">
-                <button class="tab active" onclick="showPanel('login')">登录</button>
-                <button class="tab" onclick="showPanel('register')">添加设备</button>
+                <button class="tab" onclick="showPanel('login')">登录</button>
+                <button class="tab active" onclick="showPanel('register')">注册</button>
             </div>
             
             <div class="form-group">
                 <label>用户名</label>
-                <input type="text" id="register-username" placeholder="输入已有用户名">
+                <input type="text" id="register-username" placeholder="输入新用户名">
             </div>
             
             <div class="form-group">
-                <label>设备名称（可选）</label>
-                <input type="text" id="device-name" placeholder="如：MacBook Pro">
+                <label>显示名称（可选）</label>
+                <input type="text" id="register-display-name" placeholder="你的昵称">
             </div>
             
-            <button class="passkey-btn primary" onclick="registerNewDevice()">
-                <span class="passkey-icon">➕</span>
-                添加新 Passkey
+            <button class="passkey-btn primary" onclick="registerNewUser()">
+                <span class="passkey-icon">🔑</span>
+                创建 Passkey
             </button>
             
             <div class="info-box">
-                <h4>📱 添加新设备</h4>
-                <p>在新设备上添加 Passkey，无需转移密钥，每个设备都有自己的安全凭据。</p>
+                <h4>🛡️ 注册新账户</h4>
+                <p>创建一个新账户并设置 Passkey。每个用户可以在多个设备上使用。</p>
             </div>
         </div>
     </div>
@@ -629,13 +634,18 @@
             return await verifyRes.json();
         }
         
-        // 添加新设备
-        async function registerNewDevice() {
+        // 注册新用户
+        async function registerNewUser() {
             const username = document.getElementById('register-username').value.trim();
-            const deviceName = document.getElementById('device-name').value.trim();
+            const displayName = document.getElementById('register-display-name').value.trim();
             
             if (!username) {
                 showMessage('请输入用户名', 'error');
+                return;
+            }
+            
+            if (username.length < 2) {
+                showMessage('用户名至少2个字符', 'error');
                 return;
             }
             
@@ -644,8 +654,9 @@
             clearMessage();
             
             try {
-                await registerPasskey(username, username, deviceName || '新设备');
-                showMessage('✅ 新设备添加成功！', 'success');
+                await registerPasskey(username, displayName || username, '首次注册');
+                showMessage('✅ 注册成功！正在跳转...', 'success');
+                setTimeout(() => window.location.href = '/', 1000);
             } catch (e) {
                 showMessage(e.message, 'error');
             } finally {
