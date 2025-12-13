@@ -1002,7 +1002,27 @@
         
         function spawnCollectibles() {
             players.forEach(player => {
-                if (Math.random() > 0.7) return;
+                const glucose = gameState[player.id]?.glucose || 5.6;
+                
+                // 根据血糖计算生成概率
+                // 正常范围：70% 概率生成
+                // 偏离正常：概率降低
+                let spawnChance;
+                if (glucose < OPTIMAL_LOW) {
+                    // 低血糖：30% 概率
+                    spawnChance = 0.3;
+                } else if (glucose <= OPTIMAL_HIGH) {
+                    // 正常：70% 概率
+                    spawnChance = 0.7;
+                } else if (glucose <= 11.1) {
+                    // 偏高：40% 概率
+                    spawnChance = 0.4;
+                } else {
+                    // 危险高：20% 概率
+                    spawnChance = 0.2;
+                }
+                
+                if (Math.random() > spawnChance) return;
                 
                 const totalWeight = COLLECTIBLES.reduce((sum, c) => sum + c.weight, 0);
                 let rand = Math.random() * totalWeight;
