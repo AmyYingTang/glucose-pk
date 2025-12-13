@@ -874,11 +874,12 @@
         
         function renderLeaderboard() {
             const list = document.getElementById('leaderboard-list');
+            if (!list || players.length === 0) return;
             
             const sorted = players.map(p => ({
                 ...p,
-                score: gameState[p.id].score,
-                distance: gameState[p.id].distance
+                score: gameState[p.id]?.score || 0,
+                distance: gameState[p.id]?.distance || 0
             })).sort((a, b) => b.score - a.score || b.distance - a.distance);
             
             list.innerHTML = sorted.map((p, i) => `

@@ -18,6 +18,7 @@ const DanmakuSystem = {
         danmakuDuration: 8000,   // 弹幕滚动时长（毫秒）
         danmakuSpacing: 2000,    // 弹幕间隔（毫秒）
         maxDanmakuLines: 3,      // 弹幕轨道数
+        loopInterval: 3000,      // 循环播放时每条弹幕间隔（毫秒）
     },
     
     // 状态
@@ -27,6 +28,9 @@ const DanmakuSystem = {
         danmakuQueue: [],
         isPanelOpen: false,
         pollTimer: null,
+        loopTimer: null,         // 循环播放定时器
+        loopIndex: 0,            // 当前循环到第几条
+        isLooping: localStorage.getItem('danmaku_loop') === 'true',  // 是否循环播放
         username: localStorage.getItem('danmaku_username') || '',
     },
     
@@ -348,6 +352,55 @@ const DanmakuSystem = {
                 transform: none;
             }
             
+            /* 循环播放开关 */
+            .loop-toggle-container {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+                background: rgba(255,255,255,0.03);
+            }
+            
+            .loop-toggle-label {
+                color: rgba(255,255,255,0.8);
+                font-size: 13px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .loop-toggle-switch {
+                position: relative;
+                width: 44px;
+                height: 24px;
+                background: rgba(255,255,255,0.2);
+                border-radius: 12px;
+                cursor: pointer;
+                transition: background 0.3s;
+            }
+            
+            .loop-toggle-switch.active {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            
+            .loop-toggle-switch::after {
+                content: '';
+                position: absolute;
+                top: 2px;
+                left: 2px;
+                width: 20px;
+                height: 20px;
+                background: white;
+                border-radius: 50%;
+                transition: transform 0.3s;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            
+            .loop-toggle-switch.active::after {
+                transform: translateX(20px);
+            }
+            
             /* 响应式 */
             @media (max-width: 480px) {
                 .comment-panel {
@@ -399,6 +452,12 @@ const DanmakuSystem = {
                 <h3>💬 弹幕评论</h3>
                 <button class="comment-panel-close" id="comment-panel-close">&times;</button>
             </div>
+            <div class="loop-toggle-container">
+                <span class="loop-toggle-label">
+                    🔄 循环播放弹幕
+                </span>
+                <div class="loop-toggle-switch ${this.state.isLooping ? 'active' : ''}" id="loop-toggle"></div>
+            </div>
             <div class="comment-list" id="comment-list">
                 <div class="comment-empty">暂无评论，快来发第一条弹幕吧！</div>
             </div>
@@ -447,6 +506,11 @@ const DanmakuSystem = {
             localStorage.setItem('danmaku_username', e.target.value);
         });
         
+        // 循环播放开关
+        document.getElementById('loop-toggle').addEventListener('click', (e) => {
+            this.toggleLoop();
+        });
+        
         // 点击面板外关闭
         document.addEventListener('click', (e) => {
             const panel = document.getElementById('comment-panel');
@@ -474,6 +538,77 @@ const DanmakuSystem = {
     },
     
     /**
+     * 切换循环播放
+     */
+    toggleLoop(enable = null) {
+        const toggle = document.getElementById('loop-toggle');
+        this.state.isLooping = enable !== null ? enable : !this.state.isLooping;
+        
+        // 更新 UI
+        toggle.classList.toggle('active', this.state.isLooping);
+        
+        // 保存设置
+        localStorage.setItem('danmaku_loop', this.state.isLooping);
+        
+        if (this.state.isLooping) {
+            this.startLoop();
+            console.log('🔄 开始循环播放弹幕');
+        } else {
+            this.stopLoop();
+            console.log('⏹️ 停止循环播放');
+        }
+    },
+    
+    /**
+     * 开始循环播放
+     */
+    startLoop() {
+        // 先停止之前的循环
+        this.stopLoop();
+        
+        if (this.state.comments.length === 0) {
+            console.log('没有评论可以循环播放');
+            return;
+        }
+        
+        // 重置索引
+        this.state.loopIndex = 0;
+        
+        // 立即播放第一条
+        this.playNextInLoop();
+        
+        // 设置循环定时器
+        this.state.loopTimer = setInterval(() => {
+            this.playNextInLoop();
+        }, this.config.loopInterval);
+    },
+    
+    /**
+     * 播放循环中的下一条
+     */
+    playNextInLoop() {
+        if (!this.state.isLooping || this.state.comments.length === 0) {
+            return;
+        }
+        
+        const comment = this.state.comments[this.state.loopIndex];
+        this.showDanmaku(comment);
+        
+        // 移动到下一条，循环
+        this.state.loopIndex = (this.state.loopIndex + 1) % this.state.comments.length;
+    },
+    
+    /**
+     * 停止循环播放
+     */
+    stopLoop() {
+        if (this.state.loopTimer) {
+            clearInterval(this.state.loopTimer);
+            this.state.loopTimer = null;
+        }
+    },
+    
+    /**
      * 加载评论
      */
     async loadComments() {
@@ -490,9 +625,10 @@ const DanmakuSystem = {
                     this.state.lastCommentId = Math.max(...data.comments.map(c => c.id));
                 }
                 
-                // 显示所有现有评论为弹幕（可选，首次加载时）
-                // 可以取消注释下面这行来实现
-                // data.comments.slice(-5).forEach(c => this.showDanmaku(c));
+                // 如果循环开关是开的，自动开始循环
+                if (this.state.isLooping && data.comments.length > 0) {
+                    this.startLoop();
+                }
             }
         } catch (error) {
             console.error('加载评论失败:', error);
@@ -577,7 +713,7 @@ const DanmakuSystem = {
     /**
      * 提交评论
      */
-    async submitComment() {
+    submitComment() {
         const usernameInput = document.getElementById('comment-username');
         const contentInput = document.getElementById('comment-content');
         const submitBtn = document.getElementById('comment-submit');
@@ -597,42 +733,46 @@ const DanmakuSystem = {
             return;
         }
         
-        // 禁用按钮
-        submitBtn.disabled = true;
-        submitBtn.textContent = '发送中...';
+        // 保存用户名
+        this.state.username = username;
+        localStorage.setItem('danmaku_username', username);
         
-        try {
-            const response = await fetch('/api/comments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, content })
-            });
-            
-            const data = await response.json();
-            
+        // 🚀 立即显示弹幕（乐观更新，不等服务器响应）
+        const tempComment = {
+            id: Date.now(),
+            username: username,
+            content: content,
+            avatar: username[0].toUpperCase(),
+            created_at: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+        };
+        this.showDanmaku(tempComment);
+        
+        // 立即清空输入并恢复按钮状态
+        contentInput.value = '';
+        
+        // 后台异步发送到服务器（不阻塞 UI）
+        fetch('/api/comments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, content })
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.success) {
-                // 清空输入
-                contentInput.value = '';
-                
-                // 保存用户名
-                this.state.username = username;
-                localStorage.setItem('danmaku_username', username);
-                
-                // 添加到列表并显示弹幕
-                this.state.comments.push(data.comment);
-                this.state.lastCommentId = data.comment.id;
-                this.renderCommentList();
-                this.showDanmaku(data.comment);
+                // 添加到列表（用服务器返回的正式数据）
+                // 避免重复：检查是否已经存在
+                if (!this.state.comments.find(c => c.id === data.comment.id)) {
+                    this.state.comments.push(data.comment);
+                    this.state.lastCommentId = data.comment.id;
+                    this.renderCommentList();
+                }
             } else {
-                alert(data.error || '发送失败');
+                console.error('保存评论失败:', data.error);
             }
-        } catch (error) {
+        })
+        .catch(error => {
             console.error('发送评论失败:', error);
-            alert('网络错误，请重试');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = '发送弹幕 🚀';
-        }
+        });
     },
     
     /**
@@ -682,6 +822,9 @@ const DanmakuSystem = {
     destroy() {
         if (this.state.pollTimer) {
             clearInterval(this.state.pollTimer);
+        }
+        if (this.state.loopTimer) {
+            clearInterval(this.state.loopTimer);
         }
         document.getElementById('danmaku-container')?.remove();
         document.getElementById('comment-toggle-btn')?.remove();

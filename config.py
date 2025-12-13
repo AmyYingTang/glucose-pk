@@ -1,6 +1,6 @@
 """
 用户配置文件
-从 .env 文件读取配置，密码使用加密存储
+从 .env 文件读取配置，密码通过 password_manager.py 管理
 """
 
 import os
@@ -9,14 +9,6 @@ from dotenv import load_dotenv
 
 # 加载 .env 文件
 load_dotenv()
-
-# 尝试导入加密工具
-try:
-    from crypto_utils import decrypt_password, get_or_create_key
-    ENCRYPTION_AVAILABLE = True
-except ImportError:
-    ENCRYPTION_AVAILABLE = False
-    print("⚠️  crypto_utils 未找到，将使用明文密码（不推荐）")
 
 
 def _get_env(key: str, default: str = None) -> str:
@@ -30,9 +22,10 @@ def _decrypt_if_needed(value: str) -> str:
         return value
     
     # 检查是否是 Fernet 加密格式（以 gAAAAA 开头）
-    if ENCRYPTION_AVAILABLE and value.startswith("gAAAAA"):
+    if value.startswith("gAAAAA"):
         try:
-            return decrypt_password(value)
+            from password_manager import EncryptedBackend
+            return EncryptedBackend.decrypt(value)
         except Exception as e:
             print(f"⚠️  密码解密失败: {e}")
             return value
