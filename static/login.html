@@ -79,22 +79,12 @@
             color: white;
         }
         
-        .tab:hover:not(.active) {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        
         .panel {
             display: none;
         }
         
         .panel.active {
             display: block;
-            animation: fadeIn 0.3s;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         
         .form-group {
@@ -117,7 +107,6 @@
             border-radius: 12px;
             color: white;
             font-size: 15px;
-            transition: all 0.3s;
         }
         
         input:focus {
@@ -143,17 +132,12 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            margin-bottom: 12px;
         }
         
         .btn-primary {
             background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
             color: white;
-            margin-bottom: 12px;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
         }
         
         .btn-secondary {
@@ -162,13 +146,9 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
         
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(59, 130, 246, 0.4);
         }
         
         .divider {
@@ -201,12 +181,6 @@
         
         .message.show {
             display: block;
-            animation: slideDown 0.3s;
-        }
-        
-        @keyframes slideDown {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
         }
         
         .message.success {
@@ -220,67 +194,6 @@
             border: 1px solid rgba(239, 68, 68, 0.4);
             color: #fca5a5;
         }
-        
-        .info-box {
-            background: rgba(59, 130, 246, 0.1);
-            border: 1px solid rgba(59, 130, 246, 0.3);
-            border-radius: 12px;
-            padding: 16px;
-            margin-top: 20px;
-        }
-        
-        .info-box h4 {
-            color: #60a5fa;
-            font-size: 14px;
-            margin-bottom: 8px;
-        }
-        
-        .info-box p {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 13px;
-            line-height: 1.5;
-        }
-        
-        .warning-box {
-            background: rgba(251, 191, 36, 0.1);
-            border: 1px solid rgba(251, 191, 36, 0.3);
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 20px;
-            display: none;
-        }
-        
-        .warning-box.show {
-            display: block;
-        }
-        
-        .warning-box p {
-            color: #fbbf24;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-        
-        .link {
-            color: #60a5fa;
-            text-decoration: none;
-            font-size: 13px;
-            display: inline-block;
-            margin-top: 10px;
-        }
-        
-        .link:hover {
-            text-decoration: underline;
-        }
-        
-        @media (max-width: 480px) {
-            .container {
-                padding: 30px 20px;
-            }
-            
-            h1 {
-                font-size: 24px;
-            }
-        }
     </style>
 </head>
 <body>
@@ -292,11 +205,10 @@
         </div>
         
         <div id="message" class="message"></div>
-        <div id="browser-warning" class="warning-box"></div>
         
         <div class="tabs">
-            <button class="tab active" onclick="showPanel('login')">登录</button>
-            <button class="tab" onclick="showPanel('register')">注册</button>
+            <button class="tab active" id="login-tab" onclick="switchTab('login')">登录</button>
+            <button class="tab" id="register-tab" onclick="switchTab('register')">注册</button>
         </div>
         
         <!-- 登录面板 -->
@@ -320,12 +232,6 @@
             <button class="btn btn-secondary" onclick="loginWithPassword()">
                 <span>🔐</span> 使用密码登录
             </button>
-            
-            <div class="info-box">
-                <h4>💡 登录方式</h4>
-                <p>Passkey：使用指纹、面容识别或安全密钥<br>
-                   密码：传统用户名密码登录</p>
-            </div>
         </div>
         
         <!-- 注册面板 -->
@@ -359,57 +265,21 @@
             <button class="btn btn-secondary" onclick="registerWithPassword()">
                 <span>🔐</span> 使用密码注册
             </button>
-            
-            <div class="info-box">
-                <h4>🛡️ 选择注册方式</h4>
-                <p>Passkey（推荐）：更安全，无需记忆密码<br>
-                   密码：传统方式，需要妥善保管</p>
-            </div>
         </div>
     </div>
 
     <script>
-        // ==================== 初始化 ====================
-        
-        async function init() {
-            // 检查 Passkey 支持
-            if (!window.PublicKeyCredential) {
-                showWarning('你的浏览器不支持 Passkey，请使用密码登录或更新浏览器');
-            } else {
-                checkBrowserCompatibility();
-            }
+        // UI 切换
+        function switchTab(name) {
+            // 切换标签
+            document.getElementById('login-tab').classList.remove('active');
+            document.getElementById('register-tab').classList.remove('active');
+            document.getElementById(name + '-tab').classList.add('active');
             
-            // 检查是否已登录
-            try {
-                const res = await fetch('/api/auth/status');
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.logged_in) {
-                        window.location.href = '/';
-                    }
-                }
-            } catch (e) {
-                console.error('检查登录状态失败:', e);
-            }
-        }
-        
-        function checkBrowserCompatibility() {
-            const ua = navigator.userAgent;
-            
-            // 检测 iOS Chrome
-            if (/CriOS/.test(ua) && /iPhone|iPad|iPod/.test(ua)) {
-                showWarning('iOS Chrome 可能无法使用 Passkey，建议使用 Safari 或密码登录');
-            }
-        }
-        
-        // ==================== UI 辅助 ====================
-        
-        function showPanel(name) {
-            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            // 切换面板
+            document.getElementById('login-panel').classList.remove('active');
+            document.getElementById('register-panel').classList.remove('active');
             document.getElementById(name + '-panel').classList.add('active');
-            
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.target.classList.add('active');
             
             clearMessage();
         }
@@ -421,28 +291,10 @@
         }
         
         function clearMessage() {
-            const msg = document.getElementById('message');
-            msg.className = 'message';
+            document.getElementById('message').className = 'message';
         }
         
-        function showWarning(text) {
-            const warning = document.getElementById('browser-warning');
-            warning.innerHTML = `<p>⚠️ ${text}</p>`;
-            warning.classList.add('show');
-        }
-        
-        function setLoading(btn, loading) {
-            btn.disabled = loading;
-            if (loading) {
-                btn.dataset.originalText = btn.innerHTML;
-                btn.innerHTML = '<span>⏳</span> 处理中...';
-            } else {
-                btn.innerHTML = btn.dataset.originalText;
-            }
-        }
-        
-        // ==================== Passkey 辅助函数 ====================
-        
+        // Passkey 辅助函数
         function bufferToBase64Url(buffer) {
             const bytes = new Uint8Array(buffer);
             let binary = '';
@@ -462,8 +314,7 @@
             return bytes.buffer;
         }
         
-        // ==================== Passkey 登录 ====================
-        
+        // Passkey 登录
         async function loginWithPasskey() {
             const username = document.getElementById('login-username').value.trim();
             
@@ -472,12 +323,7 @@
                 return;
             }
             
-            const btn = event.target;
-            setLoading(btn, true);
-            clearMessage();
-            
             try {
-                // 1. 开始认证
                 const startRes = await fetch('/api/auth/login/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -492,7 +338,6 @@
                 const options = await startRes.json();
                 const sessionId = options.session_id;
                 
-                // 2. 浏览器验证
                 options.challenge = base64UrlToBuffer(options.challenge);
                 if (options.allowCredentials) {
                     options.allowCredentials = options.allowCredentials.map(cred => ({
@@ -503,7 +348,6 @@
                 
                 const credential = await navigator.credentials.get({ publicKey: options });
                 
-                // 3. 完成认证
                 const credentialJson = {
                     id: bufferToBase64Url(credential.rawId),
                     rawId: bufferToBase64Url(credential.rawId),
@@ -538,19 +382,11 @@
                 
             } catch (e) {
                 console.error('Passkey 登录失败:', e);
-                
-                if (e.name === 'NotAllowedError') {
-                    showMessage('未找到 Passkey 或操作被取消，请尝试密码登录', 'error');
-                } else {
-                    showMessage(e.message || 'Passkey 登录失败', 'error');
-                }
-            } finally {
-                setLoading(btn, false);
+                showMessage(e.message || 'Passkey 登录失败', 'error');
             }
         }
         
-        // ==================== 密码登录 ====================
-        
+        // 密码登录
         async function loginWithPassword() {
             const username = document.getElementById('login-username').value.trim();
             const password = document.getElementById('login-password').value;
@@ -559,10 +395,6 @@
                 showMessage('请输入用户名和密码', 'error');
                 return;
             }
-            
-            const btn = event.target;
-            setLoading(btn, true);
-            clearMessage();
             
             try {
                 const res = await fetch('/api/auth/login/password', {
@@ -581,13 +413,10 @@
                 
             } catch (e) {
                 showMessage(e.message || '登录失败', 'error');
-            } finally {
-                setLoading(btn, false);
             }
         }
         
-        // ==================== Passkey 注册 ====================
-        
+        // Passkey 注册
         async function registerWithPasskey() {
             const username = document.getElementById('register-username').value.trim();
             const displayName = document.getElementById('register-display-name').value.trim();
@@ -597,12 +426,7 @@
                 return;
             }
             
-            const btn = event.target;
-            setLoading(btn, true);
-            clearMessage();
-            
             try {
-                // 1. 开始注册
                 const startRes = await fetch('/api/auth/register/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -619,7 +443,6 @@
                 
                 const options = await startRes.json();
                 
-                // 2. 创建凭据
                 options.challenge = base64UrlToBuffer(options.challenge);
                 options.user.id = base64UrlToBuffer(options.user.id);
                 if (options.excludeCredentials) {
@@ -631,7 +454,6 @@
                 
                 const credential = await navigator.credentials.create({ publicKey: options });
                 
-                // 3. 完成注册
                 const credentialJson = {
                     id: bufferToBase64Url(credential.rawId),
                     rawId: bufferToBase64Url(credential.rawId),
@@ -662,19 +484,11 @@
                 
             } catch (e) {
                 console.error('Passkey 注册失败:', e);
-                
-                if (e.name === 'NotAllowedError') {
-                    showMessage('Passkey 创建被取消或失败，请尝试密码注册', 'error');
-                } else {
-                    showMessage(e.message || 'Passkey 注册失败', 'error');
-                }
-            } finally {
-                setLoading(btn, false);
+                showMessage(e.message || 'Passkey 注册失败', 'error');
             }
         }
         
-        // ==================== 密码注册 ====================
-        
+        // 密码注册
         async function registerWithPassword() {
             const username = document.getElementById('register-username').value.trim();
             const displayName = document.getElementById('register-display-name').value.trim();
@@ -695,10 +509,6 @@
                 showMessage('密码至少需要 6 个字符', 'error');
                 return;
             }
-            
-            const btn = event.target;
-            setLoading(btn, true);
-            clearMessage();
             
             try {
                 const res = await fetch('/api/auth/register/password', {
@@ -721,13 +531,26 @@
                 
             } catch (e) {
                 showMessage(e.message || '注册失败', 'error');
-            } finally {
-                setLoading(btn, false);
             }
         }
         
-        // 启动
-        init();
+        // 检查是否已登录
+        async function checkLogin() {
+            try {
+                const res = await fetch('/api/auth/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.logged_in) {
+                        window.location.href = '/';
+                    }
+                }
+            } catch (e) {
+                console.error('检查登录状态失败:', e);
+            }
+        }
+        
+        // 初始化
+        checkLogin();
     </script>
 </body>
 </html>

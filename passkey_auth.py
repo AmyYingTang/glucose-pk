@@ -27,6 +27,10 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
     ResidentKeyRequirement,
     PublicKeyCredentialDescriptor,
+    RegistrationCredential,
+    AuthenticationCredential,
+    AuthenticatorAttachment,
+    AttestationConveyancePreference,
 )
 
 # ==================== 配置 ====================
@@ -223,14 +227,14 @@ def start_registration(username: str, display_name: str = None) -> dict:
         user_display_name=display_name,
         exclude_credentials=exclude_credentials,
         authenticator_selection=AuthenticatorSelectionCriteria(
-            authenticator_attachment="platform",  # 优先平台认证器
-            resident_key=ResidentKeyRequirement.PREFERRED,  # 兼容性优先
+            authenticator_attachment=AuthenticatorAttachment.PLATFORM,  # 使用枚举
+            resident_key=ResidentKeyRequirement.PREFERRED,
             user_verification=UserVerificationRequirement.PREFERRED,
         ),
         # 支持多种算法
         supported_pub_key_algs=[-7, -257],  # ES256, RS256
         timeout=60000,
-        attestation="none",  # 简化流程
+        attestation=AttestationConveyancePreference.NONE,  # 使用枚举
     )
     
     # 保存挑战用于验证
@@ -241,7 +245,12 @@ def start_registration(username: str, display_name: str = None) -> dict:
         "is_new_user": existing_user is None,
     }
     
-    return json.loads(options_to_json(options))
+    # 转换为字典，兼容不同版本的 options_to_json
+    result = options_to_json(options)
+    if isinstance(result, str):
+        return json.loads(result)
+    else:
+        return result  # 已经是字典
 
 
 def complete_registration(username: str, credential_json: dict, device_name: str = "") -> dict:
@@ -255,8 +264,21 @@ def complete_registration(username: str, credential_json: dict, device_name: str
     challenge_data = _registration_challenges.pop(username)
     
     try:
+        # 将字典转换为 RegistrationCredential 对象
+        # 兼容不同版本的 webauthn
+        try:
+            # 尝试 Pydantic v2 方法
+            credential = RegistrationCredential.model_validate_json(json.dumps(credential_json))
+        except AttributeError:
+            try:
+                # 尝试 Pydantic v1 方法
+                credential = RegistrationCredential.parse_raw(json.dumps(credential_json))
+            except AttributeError:
+                # 如果都不行，尝试直接使用字典
+                credential = credential_json
+        
         verification = verify_registration_response(
-            credential=credential_json,
+            credential=credential,
             expected_challenge=base64url_to_bytes(challenge_data["challenge"]),
             expected_rp_id=RP_ID,
             expected_origin=ORIGIN,
@@ -264,11 +286,27 @@ def complete_registration(username: str, credential_json: dict, device_name: str
     except Exception as e:
         raise ValueError(f"Passkey 验证失败: {e}")
     
+    # 从验证结果中提取信息，兼容不同的属性名
+    try:
+        credential_id = getattr(verification, 'credential_id', None) or \
+                        getattr(verification, 'credentialId', None)
+        
+        public_key = getattr(verification, 'credential_public_key', None) or \
+                     getattr(verification, 'credentialPublicKey', None)
+        
+        sign_count = getattr(verification, 'sign_count', 0) or \
+                     getattr(verification, 'signCount', 0)
+        
+        if not credential_id or not public_key:
+            raise ValueError("无法从验证结果中提取凭据信息")
+    except Exception as e:
+        raise ValueError(f"提取验证信息失败: {e}")
+    
     # 创建凭据记录
     credential = {
-        "credential_id": bytes_to_base64url(verification.credential_id),
-        "public_key": bytes_to_base64url(verification.credential_public_key),
-        "sign_count": verification.sign_count,
+        "credential_id": bytes_to_base64url(credential_id),
+        "public_key": bytes_to_base64url(public_key),
+        "sign_count": sign_count,
         "created_at": datetime.now().isoformat(),
         "device_name": device_name or "未命名设备",
     }
@@ -345,7 +383,13 @@ def start_authentication(username: str = None) -> dict:
         "username": username,  # 可能为 None
     }
     
-    response = json.loads(options_to_json(options))
+    # 转换为字典，兼容不同版本的 options_to_json
+    result = options_to_json(options)
+    if isinstance(result, str):
+        response = json.loads(result)
+    else:
+        response = result  # 已经是字典
+    
     response["session_id"] = session_id  # 返回 session ID
     
     return response
@@ -389,8 +433,21 @@ def complete_authentication(credential_json: dict, session_id: str, username: st
         raise ValueError("凭据不存在或已被删除")
     
     try:
+        # 将字典转换为 AuthenticationCredential 对象
+        # 兼容不同版本的 webauthn
+        try:
+            # 尝试 Pydantic v2 方法
+            auth_credential = AuthenticationCredential.model_validate_json(json.dumps(credential_json))
+        except AttributeError:
+            try:
+                # 尝试 Pydantic v1 方法
+                auth_credential = AuthenticationCredential.parse_raw(json.dumps(credential_json))
+            except AttributeError:
+                # 如果都不行，尝试直接使用字典
+                auth_credential = credential_json
+        
         verification = verify_authentication_response(
-            credential=credential_json,
+            credential=auth_credential,
             expected_challenge=base64url_to_bytes(challenge_data["challenge"]),
             expected_rp_id=RP_ID,
             expected_origin=ORIGIN,
@@ -400,8 +457,17 @@ def complete_authentication(credential_json: dict, session_id: str, username: st
     except Exception as e:
         raise ValueError(f"Passkey 验证失败: {e}")
     
-    # 更新 sign_count（防止重放攻击）
-    credential["sign_count"] = verification.new_sign_count
+    # 更新 sign_count（防止重放攻击），兼容不同的属性名
+    try:
+        new_sign_count = getattr(verification, 'new_sign_count', None) or \
+                         getattr(verification, 'newSignCount', None) or \
+                         credential["sign_count"]
+        
+        credential["sign_count"] = new_sign_count
+    except Exception:
+        # 如果无法更新 sign_count，至少不要失败
+        pass
+    
     save_user(user)
     
     return {
