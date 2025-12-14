@@ -661,7 +661,7 @@
                 const authRes = await fetch('/api/auth/status');
                 const authData = await authRes.json();
                 if (authData.logged_in) {
-                    currentUser = authData.username;
+                    currentUser = authData.display_name || authData.username;
                     document.getElementById('user-info').textContent = `👤 ${currentUser}`;
                 }
             } catch (e) {

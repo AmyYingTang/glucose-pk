@@ -91,6 +91,7 @@ def auth_status():
         "auth_required": AUTH_REQUIRED,
         "logged_in": session.get("logged_in", False),
         "username": session.get("username"),
+        "display_name": session.get("display_name"),
         "has_users": passkey_auth.has_any_user(),
     })
 
@@ -135,9 +136,13 @@ def auth_register_complete():
     try:
         passkey_auth.complete_registration(username, credential, device_name)
         
+        # 获取用户信息（包括 display_name）
+        user = passkey_auth.get_user(username)
+        
         # 自动登录
         session["logged_in"] = True
         session["username"] = username
+        session["display_name"] = user.get("display_name", username) if user else username
         session.permanent = True
         
         return jsonify({"success": True, "username": username})
