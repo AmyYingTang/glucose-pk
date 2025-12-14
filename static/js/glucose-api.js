@@ -17,7 +17,9 @@ class GlucoseAPI {
      */
     async init() {
         try {
-            const response = await fetch('/api/users');
+            const response = await fetch('/api/users', {
+                credentials: 'same-origin'  // 带上登录 cookie
+            });
             const result = await response.json();
             if (result.success) {
                 this.players = result.users;
@@ -63,7 +65,16 @@ class GlucoseAPI {
      */
     async fetchLiveAllData() {
         try {
-            const response = await fetch('/api/pk/all');
+            const response = await fetch('/api/pk/all', {
+                credentials: 'same-origin'  // 带上登录 cookie
+            });
+            
+            // 检查是否 401 未授权
+            if (response.status === 401) {
+                console.warn('未登录，请先登录');
+                return { success: false, error: '未登录' };
+            }
+            
             const result = await response.json();
             
             if (result.success) {

@@ -133,7 +133,18 @@ class GlucoseChart {
             const minutes = range.hours * 60;
             const maxCount = range.points;
             
-            const response = await fetch(`/api/pk/history?minutes=${minutes}&max_count=${maxCount}`);
+            const response = await fetch(`/api/pk/history?minutes=${minutes}&max_count=${maxCount}`, {
+                credentials: 'same-origin'  // 带上登录 cookie
+            });
+            
+            // 检查是否 401 未授权
+            if (response.status === 401) {
+                console.warn('未登录，无法加载历史数据');
+                this.isLoading = false;
+                this.showLoadingState(false);
+                return false;
+            }
+            
             const result = await response.json();
             
             if (result.success && result.players) {
@@ -145,10 +156,10 @@ class GlucoseChart {
                 const playerDataMap = {};
                 
                 result.players.forEach(player => {
-                    if (player.success && player.data) {
+                    if (player.success && player.history) {
                         playerDataMap[player.user_id] = {};
                         // 数据是倒序的（最新的在前），需要反转
-                        const sortedData = [...player.data].reverse();
+                        const sortedData = [...player.history].reverse();
                         sortedData.forEach(reading => {
                             const time = new Date(reading.datetime);
                             // 将时间对齐到5分钟边界（CGM数据通常每5分钟一次）
@@ -243,15 +254,17 @@ class GlucoseChart {
         if (!this.chart) return;
         
         const range = GlucoseChart.TIME_RANGES[this.currentTimeRange];
-        let maxTicks;
         
         // 根据时间范围设置合适的标签数量
-        switch(this.currentTimeRange) {
-            case '3h':  maxTicks = 8;  break;
-            case '6h':  maxTicks = 8;  break;
-            case '12h': maxTicks = 8; break;
-            case '24h': maxTicks = 8; break;
-            default:    maxTicks = 8;
+        let maxTicks;
+        if (range.hours <= 3) {
+            maxTicks = 8;
+        } else if (range.hours <= 6) {
+            maxTicks = 10;
+        } else if (range.hours <= 12) {
+            maxTicks = 12;
+        } else {
+            maxTicks = 12;
         }
         
         this.chart.options.scales.x.ticks.maxTicksLimit = maxTicks;
