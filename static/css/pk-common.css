@@ -1,0 +1,476 @@
+/**
+ * PK 游戏公共样式
+ * 适用于所有游戏场景（城堡、漂流等）
+ */
+
+/* ==================== 基础重置 ==================== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ==================== 场景导航 ==================== */
+.scene-nav {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+    flex-wrap: wrap;
+}
+
+.scene-link {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+/* ==================== 模式切换 ==================== */
+.mode-toggle {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.mode-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 15px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* ==================== 可折叠规则面板 ==================== */
+.rules-panel {
+    max-width: 600px;
+    margin: 0 auto 15px;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.rules-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.rules-header h4 {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rules-toggle {
+    font-size: 12px;
+    transition: transform 0.3s;
+}
+
+.rules-panel.collapsed .rules-toggle {
+    transform: rotate(-90deg);
+}
+
+.rules-content {
+    padding: 15px 20px;
+    font-size: 12px;
+    line-height: 1.8;
+    max-height: 200px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+}
+
+.rules-panel.collapsed .rules-content {
+    max-height: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.rule-icon {
+    font-size: 16px;
+    width: 24px;
+    text-align: center;
+}
+
+/* ==================== 曲线图容器 ==================== */
+.chart-section {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+.chart-container {
+    border-radius: 15px;
+    padding: 15px;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chart-header h4 {
+    font-size: 14px;
+}
+
+.chart-legend {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.legend-avatar {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.chart-wrapper {
+    position: relative;
+    height: 180px;
+}
+
+/* ==================== 时间范围选择器 ==================== */
+.time-range-selector {
+    display: flex;
+    gap: 4px;
+    padding: 8px 0;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.time-range-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fff;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.time-range-btn:hover {
+    border-color: #4CAF50;
+    color: #4CAF50;
+    background: #f5fff5;
+}
+
+.time-range-btn.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+}
+
+.time-range-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ==================== 图表加载状态 ==================== */
+.chart-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.chart-loading span {
+    font-size: 12px;
+    color: #666;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* ==================== Demo 控制面板 ==================== */
+.demo-panel {
+    max-width: 500px;
+    margin: 20px auto;
+    border-radius: 15px;
+    padding: 20px;
+    display: none;
+}
+
+.demo-panel.visible {
+    display: block;
+}
+
+.demo-panel h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.demo-slider-group {
+    margin-bottom: 15px;
+}
+
+.demo-slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 13px;
+}
+
+.slider-player {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.slider-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.demo-slider {
+    width: 100%;
+    height: 10px;
+    border-radius: 5px;
+    -webkit-appearance: none;
+    appearance: none;
+    /* 2.8-16.7 mmol/L 范围，阈值: 3.9, 7.8, 11.1 */
+    background: linear-gradient(to right, 
+        #2196F3 0%, #2196F3 8%,
+        #4CAF50 8%, #4CAF50 36%, 
+        #FF9800 36%, #FF9800 60%, 
+        #f44336 60%, #f44336 100%);
+    outline: none;
+    cursor: pointer;
+}
+
+.demo-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+}
+
+.demo-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    border: none;
+}
+
+/* ==================== 控制按钮 ==================== */
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.control-btn {
+    padding: 12px 25px;
+    border: none;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.control-btn.primary:hover {
+    transform: translateY(-2px);
+}
+
+/* ==================== 状态栏 ==================== */
+.status-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    margin-top: 15px;
+    padding-bottom: 20px;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4CAF50;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.error {
+    background: #FF9800;
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* ==================== 血糖状态颜色 ==================== */
+.glucose-value.normal,
+.lane-glucose.normal { color: #4CAF50; }
+
+.glucose-value.warning,
+.lane-glucose.warning { color: #FF9800; }
+
+.glucose-value.danger,
+.lane-glucose.danger { color: #f44336; }
+
+.glucose-value.low,
+.lane-glucose.low { color: #2196F3; }
+
+/* ==================== 排行榜基础 ==================== */
+.leaderboard {
+    max-width: 400px;
+    margin: 20px auto;
+    border-radius: 15px;
+    padding: 15px;
+}
+
+.leaderboard h4,
+.leaderboard h3 {
+    text-align: center;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.lb-avatar {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.lb-name {
+    flex: 1;
+    font-weight: 600;
+}
+
+.lb-score {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+/* ==================== 用户信息栏（右上角） ==================== */
+.user-bar {
+    position: fixed;
+    top: 10px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-bar span {
+    font-size: 14px;
+    background: rgba(255,255,255,0.9);
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.logout-btn {
+    background: rgba(231,76,60,0.9);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.logout-btn:hover {
+    background: rgba(231,76,60,1);
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 480px) {
+    .time-range-selector {
+        gap: 4px;
+    }
+    
+    .time-range-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+    
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .chart-legend {
+        justify-content: flex-start;
+    }
+    
+    .controls {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .control-btn {
+        width: 80%;
+    }
+}

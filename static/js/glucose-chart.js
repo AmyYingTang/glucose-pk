@@ -1,19 +1,34 @@
 /**
  * 血糖曲线图组件
  * 可复用的多人血糖趋势图
+ * 支持可配置的时间范围
  */
 
 class GlucoseChart {
+    // 预设的时间范围选项
+    static TIME_RANGES = {
+        '3h':  { hours: 3,  label: '3小时',  points: 36 },
+        '6h':  { hours: 6,  label: '6小时',  points: 72 },
+        '12h': { hours: 12, label: '12小时', points: 144 },
+        '24h': { hours: 24, label: '24小时', points: 288 }
+    };
+
     constructor(options) {
         this.canvasId = options.canvasId;
         this.legendId = options.legendId;
+        this.timeRangeSelectorId = options.timeRangeSelectorId || null;  // 新增：时间选择器容器ID
         this.players = options.players || [];
-        this.maxPoints = options.maxPoints || 36;  // 最多显示36个点（3小时，每5分钟1个）
         this.updateInterval = options.updateInterval || 300000;  // 默认5分钟更新（匹配CGM数据）
+        
+        // 时间范围设置 - 从 localStorage 读取或使用默认值
+        const savedRange = localStorage.getItem('glucose_chart_time_range') || '3h';
+        this.currentTimeRange = savedRange;
+        this.maxPoints = GlucoseChart.TIME_RANGES[savedRange]?.points || 36;
         
         this.chart = null;
         this.historyData = {};  // playerId -> [{value, datetime}]
         this.updateTimer = null;
+        this.isLoading = false;  // 防止重复加载
         
         // 初始化历史数据
         this.players.forEach(p => {
@@ -25,24 +40,108 @@ class GlucoseChart {
      * 初始化图表
      */
     init() {
+        this.renderTimeRangeSelector();
         this.renderLegend();
         this.createChart();
+    }
+
+    /**
+     * 渲染时间范围选择器
+     */
+    renderTimeRangeSelector() {
+        const container = document.getElementById(this.timeRangeSelectorId);
+        if (!container) return;
+        
+        const buttons = Object.entries(GlucoseChart.TIME_RANGES).map(([key, range]) => {
+            const isActive = key === this.currentTimeRange;
+            return `<button 
+                class="time-range-btn ${isActive ? 'active' : ''}" 
+                data-range="${key}"
+                title="显示最近${range.label}的数据"
+            >${range.label}</button>`;
+        }).join('');
+        
+        container.innerHTML = `
+            <div class="time-range-selector">
+                ${buttons}
+            </div>
+        `;
+        
+        // 绑定点击事件
+        container.querySelectorAll('.time-range-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const range = e.target.dataset.range;
+                this.setTimeRange(range);
+            });
+        });
+    }
+
+    /**
+     * 设置时间范围
+     * @param {string} rangeKey - 时间范围键名 ('3h', '6h', '12h', '24h')
+     */
+    async setTimeRange(rangeKey) {
+        if (this.isLoading) return;
+        
+        const range = GlucoseChart.TIME_RANGES[rangeKey];
+        if (!range) {
+            console.warn('无效的时间范围:', rangeKey);
+            return;
+        }
+        
+        this.currentTimeRange = rangeKey;
+        this.maxPoints = range.points;
+        
+        // 保存到 localStorage
+        localStorage.setItem('glucose_chart_time_range', rangeKey);
+        
+        // 更新按钮状态
+        const container = document.getElementById(this.timeRangeSelectorId);
+        if (container) {
+            container.querySelectorAll('.time-range-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.range === rangeKey);
+            });
+        }
+        
+        // 重新加载数据
+        await this.loadHistoryFromAPI();
+    }
+
+    /**
+     * 获取当前时间范围配置
+     */
+    getTimeRange() {
+        return {
+            key: this.currentTimeRange,
+            ...GlucoseChart.TIME_RANGES[this.currentTimeRange]
+        };
     }
 
     /**
      * 从 API 加载历史数据（实时模式）
      */
     async loadHistoryFromAPI() {
+        if (this.isLoading) return false;
+        
+        this.isLoading = true;
+        
+        // 显示加载状态
+        this.showLoadingState(true);
+        
         try {
-            const response = await fetch('/api/pk/history?minutes=180&max_count=36');
+            const range = GlucoseChart.TIME_RANGES[this.currentTimeRange];
+            const minutes = range.hours * 60;
+            const maxCount = range.points;
+            
+            const response = await fetch(`/api/pk/history?minutes=${minutes}&max_count=${maxCount}`);
             const result = await response.json();
             
             if (result.success && result.players) {
                 // 清空当前数据
                 this.clear();
                 
-                // 收集所有时间点
-                const allTimes = new Set();
+                // 收集所有时间点（使用时间戳作为key，确保正确排序和对齐）
+                const allTimestamps = new Set();
                 const playerDataMap = {};
                 
                 result.players.forEach(player => {
@@ -52,40 +151,136 @@ class GlucoseChart {
                         const sortedData = [...player.data].reverse();
                         sortedData.forEach(reading => {
                             const time = new Date(reading.datetime);
-                            const timeKey = time.toLocaleTimeString('zh-CN', { 
-                                hour: '2-digit', 
-                                minute: '2-digit'
-                            });
-                            allTimes.add(timeKey);
-                            playerDataMap[player.user_id][timeKey] = reading.value;
+                            // 将时间对齐到5分钟边界（CGM数据通常每5分钟一次）
+                            const alignedTime = this.alignToInterval(time, 5);
+                            const timestamp = alignedTime.getTime();
+                            allTimestamps.add(timestamp);
+                            playerDataMap[player.user_id][timestamp] = reading.value;
                         });
                     }
                 });
                 
-                // 按时间排序
-                const sortedTimes = Array.from(allTimes).sort();
+                // 按时间戳排序
+                const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+                
+                // 生成显示用的时间标签
+                const timeLabels = sortedTimestamps.map(ts => 
+                    this.formatTimeLabel(new Date(ts))
+                );
                 
                 // 填充图表数据
-                this.chart.data.labels = sortedTimes;
+                this.chart.data.labels = timeLabels;
                 
                 this.players.forEach((player, index) => {
-                    const data = sortedTimes.map(time => 
-                        playerDataMap[player.id]?.[time] ?? null
+                    const data = sortedTimestamps.map(ts => 
+                        playerDataMap[player.id]?.[ts] ?? null
                     );
                     this.chart.data.datasets[index].data = data;
                     this.historyData[player.id] = data.filter(v => v !== null).map((value, i) => ({
                         value,
-                        time: sortedTimes[i]
+                        time: timeLabels[i]
                     }));
                 });
                 
+                // 根据数据量调整X轴标签数量
+                this.updateXAxisTicks();
+                
                 this.chart.update('none');
+                this.isLoading = false;
+                this.showLoadingState(false);
                 return true;
             }
+            this.isLoading = false;
+            this.showLoadingState(false);
             return false;
         } catch (e) {
             console.error('加载历史数据失败:', e);
+            this.isLoading = false;
+            this.showLoadingState(false);
             return false;
+        }
+    }
+
+    /**
+     * 格式化时间标签（根据时间范围调整格式）
+     */
+    formatTimeLabel(date) {
+        const range = GlucoseChart.TIME_RANGES[this.currentTimeRange];
+        
+        if (range.hours <= 6) {
+            // 6小时以内：只显示 HH:mm
+            return date.toLocaleTimeString('zh-CN', { 
+                hour: '2-digit', 
+                minute: '2-digit'
+            });
+        } else {
+            // 超过6小时：显示 MM-DD HH:mm
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).replace(/\//g, '-');
+        }
+    }
+
+    /**
+     * 将时间对齐到指定分钟间隔（用于合并不同玩家的数据点）
+     * 例如：11:03 和 11:04 都会对齐到 11:05（如果间隔是5分钟）
+     */
+    alignToInterval(date, intervalMinutes) {
+        const ms = date.getTime();
+        const intervalMs = intervalMinutes * 60 * 1000;
+        // 向下取整到最近的间隔
+        const aligned = Math.floor(ms / intervalMs) * intervalMs;
+        return new Date(aligned);
+    }
+
+    /**
+     * 根据数据量调整X轴标签数量
+     */
+    updateXAxisTicks() {
+        if (!this.chart) return;
+        
+        const range = GlucoseChart.TIME_RANGES[this.currentTimeRange];
+        let maxTicks;
+        
+        // 根据时间范围设置合适的标签数量
+        switch(this.currentTimeRange) {
+            case '3h':  maxTicks = 8;  break;
+            case '6h':  maxTicks = 8;  break;
+            case '12h': maxTicks = 8; break;
+            case '24h': maxTicks = 8; break;
+            default:    maxTicks = 8;
+        }
+        
+        this.chart.options.scales.x.ticks.maxTicksLimit = maxTicks;
+    }
+
+    /**
+     * 显示/隐藏加载状态
+     */
+    showLoadingState(isLoading) {
+        const canvas = document.getElementById(this.canvasId);
+        if (!canvas) return;
+        
+        const container = canvas.parentElement;
+        
+        if (isLoading) {
+            // 添加加载遮罩
+            if (!container.querySelector('.chart-loading')) {
+                const overlay = document.createElement('div');
+                overlay.className = 'chart-loading';
+                overlay.innerHTML = '<div class="loading-spinner"></div><span>加载中...</span>';
+                container.style.position = 'relative';
+                container.appendChild(overlay);
+            }
+        } else {
+            // 移除加载遮罩
+            const overlay = container.querySelector('.chart-loading');
+            if (overlay) {
+                overlay.remove();
+            }
         }
     }
 
@@ -132,15 +327,18 @@ class GlucoseChart {
             { borderDash: [12, 4, 4, 4], pointStyle: 'star' }, // 点划线 + 星形
         ];
         
+        // 根据数据点数量调整点的大小
+        const pointRadius = this.maxPoints > 100 ? 1 : 2;
+        
         const datasets = this.players.map((player, index) => ({
             label: player.name,
             data: [],
             borderColor: player.color,
             backgroundColor: player.color + '20',
-            borderWidth: 3,
+            borderWidth: this.maxPoints > 100 ? 2 : 3,  // 数据多时线条稍细
             fill: false,
             tension: 0.3,
-            pointRadius: 2,
+            pointRadius: pointRadius,
             pointHoverRadius: 7,
             spanGaps: true,
             // 不同线条样式
@@ -172,7 +370,9 @@ class GlucoseChart {
                         grid: { display: false },
                         ticks: { 
                             font: { size: 10 },
-                            maxTicksLimit: 8
+                            maxTicksLimit: 8,
+                            maxRotation: 45,
+                            minRotation: 0
                         }
                     },
                     y: {
@@ -227,10 +427,7 @@ class GlucoseChart {
         if (!this.chart) return;
         
         const now = new Date();
-        const timeLabel = now.toLocaleTimeString('zh-CN', { 
-            hour: '2-digit', 
-            minute: '2-digit'
-        });
+        const timeLabel = this.formatTimeLabel(now);
         
         // 添加时间标签
         this.chart.data.labels.push(timeLabel);

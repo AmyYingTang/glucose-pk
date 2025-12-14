@@ -1,0 +1,430 @@
+/**
+ * 漂流冒险 - 专用样式
+ */
+
+/* ==================== 主题色彩 ==================== */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 50%, #87CEEB 100%);
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ==================== 头部 ==================== */
+.header {
+    text-align: center;
+    padding: 15px;
+    background: rgba(255,255,255,0.3);
+    backdrop-filter: blur(10px);
+}
+
+.header h1 {
+    font-size: 24px;
+    color: #2c5f7c;
+    text-shadow: 0 2px 4px rgba(255,255,255,0.5);
+}
+
+.header p {
+    font-size: 13px;
+    color: #4a8ba8;
+    margin-top: 5px;
+}
+
+/* ==================== 场景导航（覆盖公共样式） ==================== */
+.scene-link {
+    color: #2c5f7c;
+    background: rgba(255,255,255,0.5);
+}
+
+.scene-link:hover {
+    background: rgba(255,255,255,0.8);
+}
+
+.scene-link.active {
+    background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+}
+
+/* ==================== 模式按钮（覆盖） ==================== */
+.mode-btn {
+    background: rgba(255,255,255,0.5);
+    color: #2c5f7c;
+}
+
+.mode-btn.active {
+    background: rgba(255,255,255,0.95);
+    color: #333;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* ==================== 规则面板（覆盖） ==================== */
+.rules-panel {
+    background: rgba(255,255,255,0.7);
+}
+
+.rules-header {
+    background: rgba(255,255,255,0.5);
+}
+
+.rules-header:hover {
+    background: rgba(255,255,255,0.8);
+}
+
+.rules-header h4 {
+    color: #2c5f7c;
+}
+
+.rules-toggle {
+    color: #2c5f7c;
+}
+
+.rules-content {
+    color: #2c5f7c;
+}
+
+/* ==================== 河流游戏区域 ==================== */
+.river-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* 每个玩家的泳道 */
+.lane {
+    position: relative;
+    height: 120px;
+    margin-bottom: 15px;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+/* 河流背景 - 会移动 */
+.river-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        90deg,
+        #5AB9D3 0px,
+        #3AAFCF 50px,
+        #5AB9D3 100px
+    );
+    animation: flow 2s linear infinite;
+}
+
+.lane.slow .river-bg {
+    /* 高血糖：流得慢 */
+    animation-duration: 4s;
+    background: repeating-linear-gradient(
+        90deg,
+        #E8B86A 0px,
+        #D4A44A 50px,
+        #E8B86A 100px
+    );
+}
+
+.lane.danger .river-bg {
+    /* 危险高血糖：流得很慢，红色 */
+    animation-duration: 6s;
+    background: repeating-linear-gradient(
+        90deg,
+        #E88A5A 0px,
+        #D4734A 50px,
+        #E88A5A 100px
+    );
+}
+
+.lane.low .river-bg {
+    /* 低血糖：流得慢，紫色 */
+    animation-duration: 4s;
+    background: repeating-linear-gradient(
+        90deg,
+        #8A7ABF 0px,
+        #7A6AAF 50px,
+        #8A7ABF 100px
+    );
+}
+
+@keyframes flow {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+/* 水波纹 */
+.water-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 200%;
+    height: 100%;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent 0px,
+        transparent 48px,
+        rgba(255,255,255,0.2) 48px,
+        rgba(255,255,255,0.2) 52px
+    );
+    animation: flow 2s linear infinite;
+}
+
+.lane.slow .water-lines {
+    animation-duration: 4s;
+}
+
+.lane.danger .water-lines {
+    animation-duration: 6s;
+}
+
+.lane.low .water-lines {
+    animation-duration: 4s;
+}
+
+/* 河岸 */
+.riverbank-top, .riverbank-bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 15px;
+    z-index: 5;
+}
+
+.riverbank-top {
+    top: 0;
+    background: linear-gradient(180deg, #7CB342 0%, #8BC34A 60%, transparent 100%);
+}
+
+.riverbank-bottom {
+    bottom: 0;
+    background: linear-gradient(0deg, #7CB342 0%, #8BC34A 60%, transparent 100%);
+}
+
+/* ==================== 玩家信息栏 ==================== */
+.lane-info {
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 8px 15px;
+    border-radius: 25px;
+    z-index: 10;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+}
+
+.lane-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.lane-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.lane-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.lane-glucose {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+/* ==================== 分数显示 ==================== */
+.lane-score {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.95);
+    padding: 10px 20px;
+    border-radius: 20px;
+    z-index: 10;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.score-icon {
+    font-size: 20px;
+}
+
+.score-value {
+    font-size: 24px;
+    font-weight: bold;
+    color: #FFB800;
+}
+
+/* 距离显示 */
+.lane-distance {
+    position: absolute;
+    right: 120px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.5);
+    color: white;
+    padding: 5px 12px;
+    border-radius: 15px;
+    font-size: 12px;
+    z-index: 10;
+}
+
+/* ==================== 漂流者 ==================== */
+.floater {
+    position: absolute;
+    left: 200px;
+    width: 50px;
+    height: 50px;
+    z-index: 8;
+    transition: top 0.3s ease-out;
+}
+
+.floater-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,0.3));
+    animation: bob 0.8s ease-in-out infinite;
+}
+
+.lane.slow .floater-img {
+    animation: bob 1.5s ease-in-out infinite;
+    opacity: 0.8;
+}
+
+.lane.danger .floater-img {
+    animation: bob 0.3s ease-in-out infinite, shake 0.1s ease-in-out infinite;
+}
+
+@keyframes bob {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-3px); }
+}
+
+/* ==================== 收集物 ==================== */
+.collectible {
+    position: absolute;
+    font-size: 28px;
+    z-index: 7;
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.collectible.collected {
+    transform: scale(1.5);
+    opacity: 0;
+}
+
+/* 收集特效 */
+.collect-effect {
+    position: absolute;
+    font-size: 16px;
+    font-weight: bold;
+    color: #FFD700;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    z-index: 20;
+    animation: floatUp 0.8s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-30px) scale(1.5); }
+}
+
+/* ==================== 曲线图（覆盖） ==================== */
+.chart-container {
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.chart-header h4 {
+    color: #2c5f7c;
+}
+
+/* ==================== 排行榜（覆盖） ==================== */
+.leaderboard {
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+
+.leaderboard h4 {
+    color: #2c5f7c;
+}
+
+.lb-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+}
+
+.lb-item.first {
+    background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+    color: white;
+}
+
+.lb-rank {
+    font-size: 18px;
+    font-weight: bold;
+    width: 30px;
+    text-align: center;
+}
+
+.lb-item.first .lb-score {
+    color: white;
+}
+
+/* ==================== Demo 面板（覆盖） ==================== */
+.demo-panel {
+    background: rgba(255,255,255,0.8);
+}
+
+.demo-panel h3 {
+    color: #2c5f7c;
+}
+
+.demo-slider-header {
+    color: #333;
+}
+
+/* ==================== 控制按钮（覆盖） ==================== */
+.control-btn.primary {
+    background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+}
+
+.control-btn.secondary {
+    background: rgba(255,255,255,0.8);
+    color: #2c5f7c;
+}
+
+/* ==================== 状态栏（覆盖） ==================== */
+.status-bar {
+    color: #2c5f7c;
+}
+
+/* ==================== 用户信息（覆盖） ==================== */
+.user-bar span {
+    color: #2c5f7c;
+}

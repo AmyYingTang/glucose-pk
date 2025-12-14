@@ -1,0 +1,126 @@
+/**
+ * 血糖图表时间选择器样式
+ * 添加到你现有的 CSS 文件中，或作为单独文件引入
+ */
+
+/* 时间范围选择器容器 */
+.time-range-selector {
+    display: flex;
+    gap: 4px;
+    padding: 8px 0;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* 时间范围按钮 */
+.time-range-btn {
+    padding: 6px 12px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fff;
+    color: #666;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+}
+
+.time-range-btn:hover {
+    border-color: #4CAF50;
+    color: #4CAF50;
+    background: #f5fff5;
+}
+
+.time-range-btn.active {
+    background: #4CAF50;
+    border-color: #4CAF50;
+    color: #fff;
+}
+
+.time-range-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 加载遮罩 */
+.chart-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    z-index: 10;
+    border-radius: 8px;
+}
+
+.chart-loading span {
+    font-size: 12px;
+    color: #666;
+}
+
+/* 加载动画 */
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4CAF50;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 深色主题支持 */
+@media (prefers-color-scheme: dark) {
+    .time-range-btn {
+        background: #2a2a2a;
+        border-color: #444;
+        color: #ccc;
+    }
+    
+    .time-range-btn:hover {
+        background: #333;
+        border-color: #4CAF50;
+        color: #4CAF50;
+    }
+    
+    .time-range-btn.active {
+        background: #4CAF50;
+        border-color: #4CAF50;
+        color: #fff;
+    }
+    
+    .chart-loading {
+        background: rgba(30, 30, 30, 0.9);
+    }
+    
+    .chart-loading span {
+        color: #aaa;
+    }
+    
+    .loading-spinner {
+        border-color: #444;
+        border-top-color: #4CAF50;
+    }
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+    .time-range-selector {
+        gap: 4px;
+    }
+    
+    .time-range-btn {
+        padding: 5px 10px;
+        font-size: 11px;
+    }
+}

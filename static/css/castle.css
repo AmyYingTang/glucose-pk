@@ -1,0 +1,279 @@
+/**
+ * 城堡攻防 - 专用样式
+ */
+
+/* ==================== 主题色彩 ==================== */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    min-height: 100vh;
+    color: white;
+}
+
+/* ==================== 头部 ==================== */
+.header {
+    text-align: center;
+    padding: 20px;
+}
+
+.header h1 {
+    font-size: 28px;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.header p {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+/* ==================== 场景导航（覆盖公共样式） ==================== */
+.scene-link {
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.1);
+}
+
+.scene-link:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.scene-link.active {
+    background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+}
+
+/* ==================== 模式按钮（覆盖） ==================== */
+.mode-btn {
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+}
+
+.mode-btn.active {
+    background: rgba(255,255,255,0.9);
+    color: #333;
+}
+
+/* ==================== 规则面板（覆盖） ==================== */
+.rules-panel {
+    background: rgba(255,255,255,0.05);
+}
+
+.rules-header {
+    background: rgba(255,255,255,0.05);
+}
+
+.rules-header:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* ==================== 曲线图容器（覆盖） ==================== */
+.chart-section {
+    max-width: 900px;
+}
+
+.chart-container {
+    background: rgba(255,255,255,0.95);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.chart-header h4 {
+    color: #333;
+}
+
+.chart-wrapper {
+    height: 200px;
+}
+
+/* ==================== 城堡战场 ==================== */
+.battlefield {
+    display: flex;
+    gap: 20px;
+    padding: 0 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.castle-arena {
+    flex: 1;
+    min-width: 280px;
+    max-width: 400px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.arena-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.player-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,0.3);
+}
+
+.player-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.glucose-display {
+    text-align: right;
+}
+
+.glucose-value {
+    font-size: 28px;
+    font-weight: 700;
+}
+
+.glucose-unit {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.glucose-trend {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* ==================== 城堡画布 ==================== */
+.canvas-container {
+    width: 100%;
+    height: 250px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: linear-gradient(180deg, #1a1a2e 0%, #2d5016 100%);
+}
+
+.castle-canvas {
+    width: 100%;
+    height: 100%;
+}
+
+/* ==================== 战况面板 ==================== */
+.battle-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 10px;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+.stat-value {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+/* ==================== 排行榜（覆盖） ==================== */
+.leaderboard {
+    background: rgba(255,255,255,0.1);
+}
+
+.leaderboard h3 {
+    font-size: 16px;
+}
+
+.leaderboard-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 10px;
+    margin-bottom: 8px;
+}
+
+.rank {
+    font-size: 20px;
+    font-weight: bold;
+    width: 35px;
+}
+
+.rank.gold { color: #FFD700; }
+.rank.silver { color: #C0C0C0; }
+.rank.bronze { color: #CD7F32; }
+
+.lb-info {
+    flex: 1;
+}
+
+.lb-stats {
+    font-size: 11px;
+    opacity: 0.7;
+}
+
+/* ==================== Demo 面板（覆盖） ==================== */
+.demo-panel {
+    background: rgba(0,0,0,0.3);
+}
+
+/* ==================== 控制按钮（覆盖） ==================== */
+.control-btn.primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.control-btn.primary:hover {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.control-btn.secondary {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
+
+.control-btn.secondary:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* ==================== 状态栏（覆盖） ==================== */
+.status-bar {
+    opacity: 0.7;
+}
+
+.status-dot.error {
+    background: #f44336;
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 700px) {
+    .battlefield {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .castle-arena {
+        width: 100%;
+        max-width: 350px;
+    }
+    
+    .chart-legend {
+        justify-content: center;
+    }
+}
