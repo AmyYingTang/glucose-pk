@@ -428,3 +428,36 @@ body {
 .user-bar span {
     color: #2c5f7c;
 }
+
+
+/* ==================== SVG 水波效果 ==================== */
+.wave {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 300%;
+    height: 80px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120'%3E%3Cpath fill='rgba(255,255,255,0.15)' d='M0,60 C300,120 600,0 900,60 C1200,120 1200,120 1200,120 L1200,120 L0,120 Z'/%3E%3C/svg%3E");
+    background-size: 600px 40px;
+    animation: wave 6s linear infinite;
+    pointer-events: none;
+    z-index: 4;
+}
+
+@keyframes wave {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-600px); }
+}
+
+/* 不同状态下波浪速度跟随河流 */
+.lane.slow .wave {
+    animation-duration: 10s;
+}
+
+.lane.danger .wave {
+    animation-duration: 14s;
+}
+
+.lane.low .wave {
+    animation-duration: 10s;
+}
