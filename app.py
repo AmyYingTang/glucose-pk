@@ -2,7 +2,10 @@
 Dexcom 血糖可视化 - Flask 后端（多人版 + Passkey 认证）
 """
 import os
+import json
 import functools
+import threading
+from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_from_directory, request, session, redirect, url_for
 from dotenv import load_dotenv
 
@@ -14,6 +17,14 @@ from data_fetcher import (
     get_user_list
 )
 from config import USERS, THRESHOLDS, PK_SETTINGS
+
+# 导入同步服务
+try:
+    from sync_service import start_sync_service, get_sync_status
+    SYNC_SERVICE_ENABLED = True
+except ImportError:
+    SYNC_SERVICE_ENABLED = False
+    print("⚠️  同步服务模块未找到，将直接调用 Dexcom API")
 
 # 导入评论 API
 try:
@@ -48,6 +59,50 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))
 
 # 是否启用认证（可通过环境变量禁用，方便本地开发）
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "true").lower() == "true"
+
+
+# ==================== 打卡和分数数据文件 ====================
+
+CHECKINS_FILE = os.path.join(BASE_DIR, "checkins.json")
+
+# 线程锁（保证并发安全）
+checkins_lock = threading.Lock()
+
+
+def _load_json_file(filepath, default=None):
+    """加载 JSON 文件"""
+    if default is None:
+        default = {}
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"⚠️ 加载 {filepath} 失败: {e}")
+            return default
+    return default
+
+
+def _save_json_file(filepath, data):
+    """保存 JSON 文件"""
+    try:
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"❌ 保存 {filepath} 失败: {e}")
+
+
+# ==================== 日期辅助函数 ====================
+
+def get_today_str():
+    """获取今天的日期字符串 YYYY-MM-DD"""
+    return datetime.now().strftime("%Y-%m-%d")
+
+
+def get_recent_days(days=15):
+    """获取最近 N 天的日期列表（从今天往前）"""
+    today = datetime.now().date()
+    return [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(days)]
 
 
 # ==================== 认证装饰器 ====================
@@ -337,7 +392,7 @@ def api_pk_all():
     results = get_all_users_glucose()
     return jsonify({
         "success": True,
-        "timestamp": __import__('datetime').datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "players": results
     })
 
@@ -356,7 +411,7 @@ def api_pk_history():
     
     return jsonify({
         "success": True,
-        "timestamp": __import__('datetime').datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "players": results
     })
 
@@ -369,6 +424,344 @@ def api_pk_settings():
         "success": True,
         "thresholds": THRESHOLDS,
         "pk_settings": PK_SETTINGS
+    })
+
+
+@app.route('/api/sync/status')
+@login_required
+def api_sync_status():
+    """获取数据同步状态"""
+    if SYNC_SERVICE_ENABLED:
+        status = get_sync_status()
+        return jsonify({
+            "success": True,
+            "enabled": True,
+            **status
+        })
+    else:
+        return jsonify({
+            "success": True,
+            "enabled": False,
+            "message": "同步服务未启用"
+        })
+
+
+@app.route('/api/pk/players')
+@login_required
+def api_pk_players():
+    """获取可选的 Dexcom 玩家列表（用于身份选择）"""
+    players = []
+    for user_id, info in USERS.items():
+        players.append({
+            "id": user_id,
+            "name": info["name"],
+            "avatar": info["avatar"],
+            "color": info["color"]
+        })
+    return jsonify({
+        "success": True,
+        "players": players
+    })
+
+
+# ==================== 打卡 API ====================
+
+@app.route('/api/checkin', methods=['POST'])
+@login_required
+def api_checkin():
+    """打卡（运动或睡眠）"""
+    data = request.get_json()
+    player_id = data.get("player_id")  # Dexcom user_id，如 "user1"
+    checkin_type = data.get("type")  # "exercise" 或 "sleep"
+    
+    if not player_id or not checkin_type:
+        return jsonify({"error": "缺少参数"}), 400
+    
+    if player_id not in USERS:
+        return jsonify({"error": "玩家不存在"}), 400
+    
+    if checkin_type not in ["exercise", "sleep"]:
+        return jsonify({"error": "无效的打卡类型"}), 400
+    
+    today = get_today_str()
+    
+    with checkins_lock:
+        checkins = _load_json_file(CHECKINS_FILE, {})
+        
+        if today not in checkins:
+            checkins[today] = {}
+        
+        if player_id not in checkins[today]:
+            checkins[today][player_id] = {}
+        
+        # 记录打卡
+        checkins[today][player_id][checkin_type] = {
+            "checked": True,
+            "time": datetime.now().isoformat()
+        }
+        
+        _save_json_file(CHECKINS_FILE, checkins)
+    
+    return jsonify({
+        "success": True,
+        "message": f"{USERS[player_id]['name']} 打卡成功：{checkin_type}",
+        "date": today,
+        "player_id": player_id,
+        "type": checkin_type
+    })
+
+
+@app.route('/api/checkin/cancel', methods=['POST'])
+@login_required
+def api_checkin_cancel():
+    """取消打卡"""
+    data = request.get_json()
+    player_id = data.get("player_id")
+    checkin_type = data.get("type")
+    
+    if not player_id or not checkin_type:
+        return jsonify({"error": "缺少参数"}), 400
+    
+    today = get_today_str()
+    
+    with checkins_lock:
+        checkins = _load_json_file(CHECKINS_FILE, {})
+        
+        if today in checkins and player_id in checkins[today]:
+            if checkin_type in checkins[today][player_id]:
+                del checkins[today][player_id][checkin_type]
+                _save_json_file(CHECKINS_FILE, checkins)
+    
+    return jsonify({
+        "success": True,
+        "message": "已取消打卡"
+    })
+
+
+@app.route('/api/checkin/today')
+@login_required
+def api_checkin_today():
+    """获取今日所有人的打卡状态"""
+    today = get_today_str()
+    
+    with checkins_lock:
+        checkins = _load_json_file(CHECKINS_FILE, {})
+    
+    today_checkins = checkins.get(today, {})
+    
+    # 构建返回数据
+    result = {}
+    for user_id, info in USERS.items():
+        player_checkins = today_checkins.get(user_id, {})
+        result[user_id] = {
+            "name": info["name"],
+            "exercise": player_checkins.get("exercise", {}).get("checked", False),
+            "exercise_time": player_checkins.get("exercise", {}).get("time"),
+            "sleep": player_checkins.get("sleep", {}).get("checked", False),
+            "sleep_time": player_checkins.get("sleep", {}).get("time"),
+        }
+    
+    return jsonify({
+        "success": True,
+        "date": today,
+        "checkins": result
+    })
+
+
+@app.route('/api/checkin/week')
+@login_required
+def api_checkin_week():
+    """获取最近 7 天打卡日历"""
+    today = datetime.now().date()
+    
+    with checkins_lock:
+        checkins = _load_json_file(CHECKINS_FILE, {})
+    
+    # 构建最近 7 天的数据
+    week_data = {}
+    for i in range(6, -1, -1):  # 从 6 天前到今天
+        current = today - timedelta(days=i)
+        date_str = current.strftime("%Y-%m-%d")
+        day_checkins = checkins.get(date_str, {})
+        
+        # 获取星期几
+        weekday_index = current.weekday()  # Monday=0, Sunday=6
+        weekday_cn = ["一", "二", "三", "四", "五", "六", "日"][weekday_index]
+        
+        week_data[date_str] = {
+            "weekday": current.strftime("%a"),
+            "weekday_cn": weekday_cn,
+            "players": {}
+        }
+        
+        for user_id in USERS.keys():
+            player_checkins = day_checkins.get(user_id, {})
+            exercise = player_checkins.get("exercise", {}).get("checked", False)
+            sleep = player_checkins.get("sleep", {}).get("checked", False)
+            
+            if exercise and sleep:
+                status = "complete"
+            elif exercise or sleep:
+                status = "partial"
+            else:
+                status = "empty"
+            
+            week_data[date_str]["players"][user_id] = {
+                "exercise": exercise,
+                "sleep": sleep,
+                "status": status
+            }
+    
+    return jsonify({
+        "success": True,
+        "today": get_today_str(),
+        "data": week_data
+    })
+
+
+# ==================== TIR 计算 ====================
+
+def calculate_daily_tir(user_id, date_str):
+    """
+    计算某用户某天的 TIR (Time in Range)
+    优先从本地同步数据计算
+    
+    Returns:
+        float: 0-1 之间的比例，或 None（无数据）
+    """
+    try:
+        # 从本地数据获取
+        if SYNC_SERVICE_ENABLED:
+            from sync_service import load_user_data
+            local_data = load_user_data(user_id)
+            history = local_data.get("history", [])
+        else:
+            # Fallback: 从 API 获取
+            result = get_glucose_history(user_id, minutes=1440, max_count=288)
+            if not result.get("success"):
+                return None
+            history = result.get("history", [])
+        
+        if not history:
+            return None
+        
+        # 过滤出指定日期的数据
+        target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        day_readings = []
+        
+        for reading in history:
+            try:
+                dt_str = reading.get("datetime", "")
+                reading_time = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                if reading_time.date() == target_date:
+                    day_readings.append(reading["value"])
+            except:
+                continue
+        
+        if not day_readings:
+            return None
+        
+        # 计算在范围内的比例 (3.9 - 7.8 mmol/L)
+        in_range = sum(1 for v in day_readings if 3.9 <= v <= 7.8)
+        tir = in_range / len(day_readings)
+        
+        return tir
+    
+    except Exception as e:
+        print(f"计算 TIR 失败 ({user_id}, {date_str}): {e}")
+        return None
+
+
+# ==================== 每日 TIR 分数 API ====================
+
+@app.route('/api/scores/daily')
+@login_required
+def api_scores_daily():
+    """获取最近 15 天的每日 TIR 分数"""
+    days = request.args.get('days', 15, type=int)
+    days = min(days, 15)  # 最多 15 天
+    
+    recent_dates = get_recent_days(days)
+    
+    with checkins_lock:
+        checkins = _load_json_file(CHECKINS_FILE, {})
+    
+    # 构建每个玩家的数据
+    players_data = {}
+    for user_id, info in USERS.items():
+        players_data[user_id] = {
+            "name": info["name"],
+            "avatar": info["avatar"],
+            "color": info["color"],
+            "daily": [],
+            "total_tir_score": 0,
+            "total_checkin_score": 0,
+            "total_score": 0,
+            "days_with_data": 0
+        }
+    
+    # 遍历每一天
+    for date_str in reversed(recent_dates):  # 从最早到最近
+        day_checkins = checkins.get(date_str, {})
+        
+        for user_id in USERS.keys():
+            day_data = {
+                "date": date_str,
+                "tir": None,
+                "tir_score": 0,
+                "exercise": False,
+                "sleep": False,
+                "checkin_score": 0,
+                "total": 0
+            }
+            
+            # TIR 分数（0-70）
+            tir = calculate_daily_tir(user_id, date_str)
+            if tir is not None:
+                day_data["tir"] = round(tir * 100, 1)  # 百分比
+                day_data["tir_score"] = round(tir * 70, 1)
+                players_data[user_id]["days_with_data"] += 1
+            
+            # 打卡分数
+            player_checkins = day_checkins.get(user_id, {})
+            if player_checkins.get("exercise", {}).get("checked"):
+                day_data["exercise"] = True
+                day_data["checkin_score"] += 15
+            if player_checkins.get("sleep", {}).get("checked"):
+                day_data["sleep"] = True
+                day_data["checkin_score"] += 15
+            
+            day_data["total"] = day_data["tir_score"] + day_data["checkin_score"]
+            
+            players_data[user_id]["daily"].append(day_data)
+            players_data[user_id]["total_tir_score"] += day_data["tir_score"]
+            players_data[user_id]["total_checkin_score"] += day_data["checkin_score"]
+            players_data[user_id]["total_score"] += day_data["total"]
+    
+    # 转换为列表并排序
+    result = []
+    for user_id, data in players_data.items():
+        result.append({
+            "user_id": user_id,
+            **data
+        })
+    
+    result.sort(key=lambda x: x["total_score"], reverse=True)
+    
+    # 标记领先者
+    if result:
+        result[0]["is_leader"] = True
+    
+    return jsonify({
+        "success": True,
+        "days": days,
+        "date_range": {
+            "start": recent_dates[-1],
+            "end": recent_dates[0]
+        },
+        "players": result,
+        "max_daily_score": 100,  # 70 TIR + 30 打卡
+        "max_total_score": days * 100
     })
 
 
@@ -390,7 +783,7 @@ def set_demo_data():
             "value_mgdl": round(value * 18),
             "trend_arrow": "→",
             "trend_description": "steady",
-            "datetime": __import__('datetime').datetime.now().isoformat()
+            "datetime": datetime.now().isoformat()
         }
         return jsonify({"success": True})
     
@@ -424,13 +817,13 @@ def get_demo_all():
                     "value_mgdl": 100,
                     "trend_arrow": "→",
                     "trend_description": "steady",
-                    "datetime": __import__('datetime').datetime.now().isoformat()
+                    "datetime": datetime.now().isoformat()
                 }
             })
     
     return jsonify({
         "success": True,
-        "timestamp": __import__('datetime').datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(),
         "players": players
     })
 
@@ -616,6 +1009,14 @@ if __name__ == '__main__':
     print("=" * 50)
     print("血糖可视化服务启动中...")
     print(f"认证模式: {'开启' if AUTH_REQUIRED and PASSKEY_ENABLED else '关闭'}")
+    
+    # 启动后台同步服务
+    if SYNC_SERVICE_ENABLED:
+        start_sync_service()
+        print("✅ 后台数据同步服务已启动")
+    else:
+        print("⚠️  后台同步服务未启用，将直接调用 Dexcom API")
+    
     print("单人界面: http://localhost:5010/")
     print("多人PK: http://localhost:5010/pk")
     if AUTH_REQUIRED and PASSKEY_ENABLED:

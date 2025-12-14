@@ -461,3 +461,452 @@ body {
 .lane.low .wave {
     animation-duration: 10s;
 }
+
+
+/* ==================== 身份选择弹窗 ==================== */
+.identity-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(5px);
+}
+
+.identity-modal.hidden {
+    display: none;
+}
+
+.identity-modal-content {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    max-width: 400px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+}
+
+.identity-modal h2 {
+    color: #2c5f7c;
+    margin-bottom: 10px;
+    font-size: 22px;
+}
+
+.identity-modal p {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.identity-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.identity-option {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: #fafafa;
+}
+
+.identity-option:hover {
+    border-color: #4ECDC4;
+    background: #f0fffe;
+}
+
+.identity-option.selected {
+    border-color: #4ECDC4;
+    background: linear-gradient(135deg, rgba(78, 205, 196, 0.1) 0%, rgba(68, 160, 141, 0.1) 100%);
+}
+
+.identity-option img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.identity-option-info {
+    flex: 1;
+    text-align: left;
+}
+
+.identity-option-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 16px;
+}
+
+.identity-option-desc {
+    font-size: 12px;
+    color: #888;
+}
+
+.identity-guest {
+    margin-top: 15px;
+    padding: 12px;
+    background: none;
+    border: 1px dashed #ccc;
+    border-radius: 10px;
+    color: #888;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.identity-guest:hover {
+    border-color: #999;
+    color: #666;
+}
+
+
+/* ==================== 打卡区域 ==================== */
+.checkin-section {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+.checkin-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.checkin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.checkin-header h4 {
+    color: #2c5f7c;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkin-date {
+    font-size: 13px;
+    color: #888;
+}
+
+/* 打卡按钮区 */
+.checkin-buttons {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.checkin-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 20px;
+    border-radius: 12px;
+    border: 2px solid #e0e0e0;
+    background: #fafafa;
+    color: #333;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.checkin-btn:hover {
+    border-color: #4ECDC4;
+    background: #f0fffe;
+}
+
+.checkin-btn.checked {
+    background: linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(39, 174, 96, 0.15) 100%);
+    border-color: #2ecc71;
+    color: #27ae60;
+}
+
+.checkin-btn.checked:hover {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.1) 0%, rgba(192, 57, 43, 0.1) 100%);
+    border-color: #e74c3c;
+}
+
+.checkin-btn .icon {
+    font-size: 24px;
+}
+
+.checkin-btn .label {
+    font-weight: 600;
+}
+
+.checkin-btn .status {
+    font-size: 12px;
+    opacity: 0.7;
+}
+
+.checkin-btn.checked .status {
+    color: #27ae60;
+    opacity: 1;
+}
+
+.checkin-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 本周打卡日历 */
+.week-calendar {
+    display: flex;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    gap: 10px;
+}
+
+/* 左侧玩家标识列 */
+.calendar-players {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 28px;  /* 对齐日期标题 */
+}
+
+.calendar-player-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+}
+
+.calendar-player-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.calendar-player-name {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+/* 右侧日历网格 */
+.calendar-grid {
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+}
+
+.day-column {
+    flex: 1;
+    text-align: center;
+}
+
+.day-name {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 8px;
+}
+
+.day-status-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+}
+
+.player-day-status {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    border: 2px solid transparent;
+}
+
+.player-day-status.complete {
+    background: rgba(46, 204, 113, 0.2);
+    color: #27ae60;
+}
+
+.player-day-status.partial {
+    background: rgba(241, 196, 15, 0.2);
+    color: #f39c12;
+}
+
+.player-day-status.empty {
+    background: rgba(0, 0, 0, 0.05);
+    color: #ccc;
+}
+
+.player-day-status.today {
+    box-shadow: 0 0 0 2px #3498db;
+}
+
+
+/* ==================== 周分数区域 ==================== */
+.week-scores-section {
+    max-width: 1000px;
+    margin: 20px auto;
+    padding: 0 20px;
+}
+
+.week-scores-container {
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.week-scores-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.week-scores-header h4 {
+    color: #2c5f7c;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.week-info {
+    font-size: 12px;
+    color: #888;
+}
+
+/* 分数卡片 */
+.score-cards {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.score-card {
+    flex: 1;
+    min-width: 200px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    padding: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+.score-card.leader {
+    background: linear-gradient(135deg, #fff9e6 0%, #fff3cd 100%);
+    border: 2px solid #ffc107;
+}
+
+.score-card.leader::before {
+    content: '👑';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 20px;
+}
+
+.score-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.score-card-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.score-card-name {
+    font-weight: 600;
+    color: #333;
+    font-size: 15px;
+}
+
+.score-card-total {
+    font-size: 28px;
+    font-weight: bold;
+    color: #2c5f7c;
+    margin-bottom: 10px;
+}
+
+.score-card-total span {
+    font-size: 14px;
+    color: #888;
+    font-weight: normal;
+}
+
+.score-breakdown {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #666;
+}
+
+.score-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 600px) {
+    .checkin-buttons {
+        flex-direction: column;
+    }
+    
+    .score-cards {
+        flex-direction: column;
+    }
+    
+    .score-card {
+        min-width: auto;
+    }
+    
+    .week-calendar {
+        overflow-x: auto;
+        gap: 5px;
+    }
+    
+    .day-column {
+        min-width: 40px;
+    }
+    
+    .identity-modal-content {
+        padding: 20px;
+    }
+    
+    .identity-option {
+        padding: 12px;
+    }
+    
+    .identity-option img {
+        width: 40px;
+        height: 40px;
+    }
+}

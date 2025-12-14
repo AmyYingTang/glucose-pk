@@ -8,6 +8,12 @@
 # Passkey 用户数据
 .passkey_users.json
 
+# 用户血糖数据
+glucose_data/
+
+# 用户身份
+checkins.json
+
 # ==================== Python ====================
 __pycache__/
 *.py[cod]
@@ -47,3 +53,6 @@ env/
 # ==================== 日志 ====================
 *.log
 logs/
+
+
+

@@ -5,11 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>血糖PK - 漂流冒险</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- CSS 外置 -->
     <link rel="stylesheet" href="css/pk-common.css">
     <link rel="stylesheet" href="css/river.css">
 </head>
 <body>
+    <!-- 身份选择弹窗 -->
+    <div class="identity-modal hidden" id="identity-modal">
+        <div class="identity-modal-content">
+            <h2>👤 选择你的身份</h2>
+            <p>请选择你对应的 Dexcom 账号</p>
+            <div class="identity-options" id="identity-options"></div>
+            <button class="identity-guest" onclick="selectIdentity('guest')">
+                👀 我只是来看看（游客模式）
+            </button>
+        </div>
+    </div>
+
     <div class="user-bar">
         <span id="user-info"></span>
         <button class="logout-btn" onclick="logout()">🚪 登出</button>
@@ -20,20 +31,16 @@
         <p>保持血糖平稳，漂得更快更远！</p>
     </div>
     
-    <!-- 场景导航 -->
     <div class="scene-nav">
-        <!--<a href="pk.html" class="scene-link">🏃 赛跑</a>-->
         <a href="castle.html" class="scene-link">⚔️ 城堡</a>
         <a href="river.html" class="scene-link active">🌊 漂流</a>
     </div>
     
-    <!-- 模式切换 -->
     <div class="mode-toggle">        
         <button class="mode-btn active" id="btn-live" onclick="setMode('live')">🔴 实时</button>
         <button class="mode-btn" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>        
     </div>
     
-    <!-- 游戏规则 -->
     <div class="rules-panel collapsed" id="rules-panel">
         <div class="rules-header" onclick="toggleRules()">
             <h4>📜 游戏规则</h4>
@@ -48,8 +55,29 @@
     </div>
     
     <!-- 河流泳道 -->
-    <div class="river-container" id="lanes-container">
-        <!-- 动态生成 -->
+    <div class="river-container" id="lanes-container"></div>
+    
+    <!-- 打卡区域 -->
+    <div class="checkin-section">
+        <div class="checkin-container">
+            <div class="checkin-header">
+                <h4>📋 今日打卡</h4>
+                <span class="checkin-date" id="checkin-date"></span>
+            </div>
+            <div class="checkin-buttons" id="checkin-buttons"></div>
+            <div class="week-calendar" id="week-calendar"></div>
+        </div>
+    </div>
+    
+    <!-- 15 天 TIR 分数区域 -->
+    <div class="week-scores-section">
+        <div class="week-scores-container">
+            <div class="week-scores-header">
+                <h4>📊 最近 15 天 TIR (Time in Range)</h4>
+                <span class="week-info" id="week-info"></span>
+            </div>
+            <div class="score-cards" id="score-cards"></div>
+        </div>
     </div>
     
     <!-- 曲线图 -->
@@ -57,7 +85,7 @@
         <div class="chart-container">
             <div class="chart-header">
                 <h4>📈 血糖趋势</h4>
-                <div id="chart-time-range"></div> <!-- 时间选择器 -->
+                <div id="chart-time-range"></div>
                 <div class="chart-legend" id="chart-legend"></div>
             </div>
             <div class="chart-wrapper">
@@ -78,7 +106,6 @@
         <button class="control-btn secondary" onclick="togglePause()" id="pause-btn">⏸️ 暂停</button>
     </div>
     
-    <!-- 状态栏 -->
     <div class="status-bar">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">Demo 模式</span>
@@ -97,7 +124,6 @@
         const COLLECTIBLE_SPAWN_INTERVAL = 1500;
         const CHART_UPDATE_INTERVAL = 120000;
         
-        // 收集物类型和分数
         const COLLECTIBLES = [
             { emoji: '🦐', points: 1, weight: 5 },
             { emoji: '🐟', points: 2, weight: 3 },
@@ -118,11 +144,13 @@
         let spawnLoop = null;
         let chartUpdateTimer = null;
         
-        // ========== 初始化 ==========
+        // 身份相关
         let currentUser = null;
+        let currentPlayerId = null;
+        let availablePlayers = [];
         
+        // ========== 初始化 ==========
         async function init() {
-            // 获取登录用户信息
             try {
                 const authRes = await fetch('/api/auth/status');
                 const authData = await authRes.json();
@@ -134,27 +162,76 @@
                 console.log('未登录或无法获取用户信息');
             }
             
+            await loadAvailablePlayers();
+            
+            const savedIdentity = localStorage.getItem('pk_player_id');
+            if (savedIdentity && (savedIdentity === 'guest' || availablePlayers.find(p => p.id === savedIdentity))) {
+                currentPlayerId = savedIdentity;
+            } else {
+                showIdentityModal();
+                return;
+            }
+            
+            await continueInit();
+        }
+        
+        async function loadAvailablePlayers() {
+            try {
+                const res = await fetch('/api/pk/players');
+                const data = await res.json();
+                if (data.success) {
+                    availablePlayers = data.players;
+                }
+            } catch (e) {
+                console.error('获取玩家列表失败:', e);
+            }
+        }
+        
+        function showIdentityModal() {
+            const modal = document.getElementById('identity-modal');
+            const optionsContainer = document.getElementById('identity-options');
+            
+            optionsContainer.innerHTML = availablePlayers.map(player => `
+                <div class="identity-option" onclick="selectIdentity('${player.id}')">
+                    <img src="${player.avatar}" alt="${player.name}">
+                    <div class="identity-option-info">
+                        <div class="identity-option-name">${player.name}</div>
+                        <div class="identity-option-desc">Dexcom 用户</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            modal.classList.remove('hidden');
+        }
+        
+        function selectIdentity(playerId) {
+            currentPlayerId = playerId;
+            localStorage.setItem('pk_player_id', playerId);
+            document.getElementById('identity-modal').classList.add('hidden');
+            continueInit();
+        }
+        
+        function changeIdentity() {
+            localStorage.removeItem('pk_player_id');
+            showIdentityModal();
+        }
+        
+        async function continueInit() {
             await api.init();
             players = api.getPlayers();
             
             players.forEach(p => {
-                gameState[p.id] = {
-                    y: LANE_HEIGHT / 2,
-                    score: 0,
-                    distance: 0,
-                    glucose: 5.6
-                };
+                gameState[p.id] = { y: LANE_HEIGHT / 2, score: 0, distance: 0, glucose: 5.6 };
                 collectibles[p.id] = [];
             });
             
             renderLanes();
             renderDemoSliders();
             
-            // 初始化图表（添加时间选择器）
             glucoseChart = new GlucoseChart({
                 canvasId: 'glucose-chart',
                 legendId: 'chart-legend',
-                timeRangeSelectorId: 'chart-time-range',  // 新增
+                timeRangeSelectorId: 'chart-time-range',
                 players: players
             });
             glucoseChart.init();
@@ -162,7 +239,160 @@
             const savedMode = api.getMode();
             applyMode(savedMode);
             
+            await loadCheckinData();
+            await loadDailyScores();
+            
             startGame();
+        }
+        
+        // ========== 打卡相关 ==========
+        async function loadCheckinData() {
+            const today = new Date();
+            const dateStr = `${today.getMonth() + 1}月${today.getDate()}日 周${'日一二三四五六'[today.getDay()]}`;
+            document.getElementById('checkin-date').textContent = dateStr;
+            
+            try {
+                const res = await fetch('/api/checkin/today');
+                const data = await res.json();
+                if (data.success) renderCheckinButtons(data.checkins);
+            } catch (e) {
+                console.error('获取打卡状态失败:', e);
+            }
+            
+            try {
+                const res = await fetch('/api/checkin/week');
+                const data = await res.json();
+                if (data.success) renderWeekCalendar(data);
+            } catch (e) {
+                console.error('获取周日历失败:', e);
+            }
+        }
+        
+        function renderCheckinButtons(checkins) {
+            const container = document.getElementById('checkin-buttons');
+            
+            if (currentPlayerId === 'guest') {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #888; padding: 15px;">
+                        👀 游客模式无法打卡
+                        <button onclick="changeIdentity()" style="margin-left: 10px; padding: 5px 10px; border-radius: 5px; border: 1px solid #ccc; cursor: pointer;">切换身份</button>
+                    </div>`;
+                return;
+            }
+            
+            const myCheckin = checkins[currentPlayerId] || { exercise: false, sleep: false };
+            
+            container.innerHTML = `
+                <button class="checkin-btn ${myCheckin.exercise ? 'checked' : ''}" onclick="toggleCheckin('exercise')" id="btn-exercise">
+                    <span class="icon">🏃</span>
+                    <span class="label">运动</span>
+                    <span class="status">${myCheckin.exercise ? '✓ 已打卡' : '+15分'}</span>
+                </button>
+                <button class="checkin-btn ${myCheckin.sleep ? 'checked' : ''}" onclick="toggleCheckin('sleep')" id="btn-sleep">
+                    <span class="icon">😴</span>
+                    <span class="label">睡眠</span>
+                    <span class="status">${myCheckin.sleep ? '✓ 已打卡' : '+15分'}</span>
+                </button>`;
+        }
+        
+        async function toggleCheckin(type) {
+            if (currentPlayerId === 'guest') return;
+            
+            const btn = document.getElementById(`btn-${type}`);
+            const isChecked = btn.classList.contains('checked');
+            
+            try {
+                const endpoint = isChecked ? '/api/checkin/cancel' : '/api/checkin';
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ player_id: currentPlayerId, type: type })
+                });
+                
+                if ((await res.json()).success) {
+                    await loadCheckinData();
+                    await loadDailyScores();
+                }
+            } catch (e) {
+                console.error('打卡操作失败:', e);
+            }
+        }
+        
+        function renderWeekCalendar(weekData) {
+            const container = document.getElementById('week-calendar');
+            const today = weekData.today;
+            const days = Object.keys(weekData.data).sort();
+            
+            // 先渲染玩家行标识
+            let html = '<div class="calendar-players">';
+            for (const player of players) {
+                html += `<div class="calendar-player-row">
+                    <img src="${player.avatar}" class="calendar-player-avatar" alt="${player.name}">
+                    <span class="calendar-player-name">${player.name}</span>
+                </div>`;
+            }
+            html += '</div>';
+            
+            // 再渲染日历网格
+            html += '<div class="calendar-grid">';
+            days.forEach(dateStr => {
+                const day = weekData.data[dateStr];
+                const isToday = dateStr === today;
+                
+                html += `<div class="day-column">
+                    <div class="day-name">${day.weekday_cn}</div>
+                    <div class="day-status-row">`;
+                
+                for (const player of players) {
+                    const status = day.players[player.id] || { status: 'empty' };
+                    const statusClass = status.status + (isToday ? ' today' : '');
+                    const icon = status.status === 'complete' ? '✓' : status.status === 'partial' ? '½' : '○';
+                    html += `<div class="player-day-status ${statusClass}" 
+                                  title="${player.name}: ${status.exercise ? '运动✓' : ''} ${status.sleep ? '睡眠✓' : ''}"
+                                  style="border-color: ${player.color};">${icon}</div>`;
+                }
+                
+                html += '</div></div>';
+            });
+            html += '</div>';
+            
+            container.innerHTML = html;
+        }
+        
+        // ========== 15天分数相关 ==========
+        async function loadDailyScores() {
+            try {
+                const res = await fetch('/api/scores/daily?days=15');
+                const data = await res.json();
+                if (data.success) renderDailyScores(data);
+            } catch (e) {
+                console.error('获取每日分数失败:', e);
+            }
+        }
+        
+        function renderDailyScores(data) {
+            document.getElementById('week-info').textContent = `${data.date_range.start} ~ ${data.date_range.end}`;
+            
+            document.getElementById('score-cards').innerHTML = data.players.map(player => {
+                const avgTir = player.days_with_data > 0 
+                    ? Math.round(player.total_tir_score / player.days_with_data / 0.7)  // 换算回百分比
+                    : 0;
+                
+                return `
+                    <div class="score-card ${player.is_leader ? 'leader' : ''}">
+                        <div class="score-card-header">
+                            <img src="${player.avatar}" class="score-card-avatar" alt="${player.name}">
+                            <span class="score-card-name">${player.name}</span>
+                        </div>
+                        <div class="score-card-total">
+                            ${Math.round(player.total_score)} <span>/ ${data.max_total_score}</span>
+                        </div>
+                        <div class="score-breakdown">
+                            <span class="score-item">🎯 平均TIR ${avgTir}%</span>
+                            <span class="score-item">📅 ${player.days_with_data}天数据</span>
+                        </div>
+                    </div>`;
+            }).join('');
         }
         
         // ========== 渲染 ==========
@@ -176,11 +406,9 @@
                 lane.id = `lane-${player.id}`;
                 lane.innerHTML = `
                     <div class="river-bg"></div>
-                    <!--<div class="water-lines"></div>-->
                     <div class="wave"></div>
                     <div class="riverbank-top"></div>
                     <div class="riverbank-bottom"></div>
-                    
                     <div class="lane-info">
                         <img src="${player.avatar}" class="lane-avatar" alt="${player.name}">
                         <div class="lane-details">
@@ -188,20 +416,15 @@
                             <span class="lane-glucose normal" id="glucose-${player.id}">-- mmol/L</span>
                         </div>
                     </div>
-                    
                     <div class="lane-distance" id="distance-${player.id}">0 m</div>
-                    
                     <div class="lane-score">
                         <span class="score-icon">🏆</span>
                         <span class="score-value" id="score-${player.id}">0</span>
                     </div>
-                    
                     <div class="floater" id="floater-${player.id}">
                         <img src="${player.avatar}" class="floater-img" alt="${player.name}">
                     </div>
-                    
-                    <div class="collectibles" id="collectibles-${player.id}"></div>
-                `;
+                    <div class="collectibles" id="collectibles-${player.id}"></div>`;
                 container.appendChild(lane);
             });
         }
@@ -221,11 +444,9 @@
                         </span>
                         <span id="slider-value-${player.id}">5.6 mmol/L</span>
                     </div>
-                    <input type="range" class="demo-slider" 
-                           id="slider-${player.id}"
+                    <input type="range" class="demo-slider" id="slider-${player.id}"
                            min="2.8" max="16.7" step="0.1" value="5.6"
-                           oninput="onSliderChange('${player.id}', this.value)">
-                `;
+                           oninput="onSliderChange('${player.id}', this.value)">`;
                 container.appendChild(group);
             });
         }
@@ -235,9 +456,7 @@
             if (!list) return;
             
             const sorted = players.map(p => ({
-                ...p,
-                score: gameState[p.id].score,
-                distance: gameState[p.id].distance
+                ...p, score: gameState[p.id].score, distance: gameState[p.id].distance
             })).sort((a, b) => b.score - a.score || b.distance - a.distance);
             
             list.innerHTML = sorted.map((p, i) => `
@@ -246,8 +465,7 @@
                     <img src="${p.avatar}" class="lb-avatar" alt="${p.name}">
                     <span class="lb-name">${p.name}</span>
                     <span class="lb-score">🪙 ${p.score}</span>
-                </div>
-            `).join('');
+                </div>`).join('');
         }
         
         // ========== 游戏逻辑 ==========
@@ -278,7 +496,6 @@
                 let speed = getSpeed(glucose);
                 state.distance += speed * 0.05;
                 
-                // 上下漂移
                 const drift = (Math.random() - 0.5) * 3;
                 state.y = Math.max(LANE_PADDING + 10, Math.min(LANE_HEIGHT - LANE_PADDING - FLOATER_SIZE - 10, state.y + drift));
                 
@@ -290,20 +507,10 @@
         }
         
         function getSpeed(glucose) {
-            // 血糖正常范围内速度最快，偏离正常范围越多越慢
-            if (glucose < OPTIMAL_LOW) {
-                // 低血糖：越低越慢 (1-2)
-                return 1 + (glucose / OPTIMAL_LOW) * 1;
-            } else if (glucose <= OPTIMAL_HIGH) {
-                // 正常范围：最快 (3)
-                return 3;
-            } else if (glucose <= 11.1) {
-                // 偏高：逐渐变慢 (3 → 1.5)
-                return 3 - (glucose - OPTIMAL_HIGH) / 3.3 * 1.5;
-            } else {
-                // 危险高：很慢 (1.5 → 0.5)
-                return Math.max(0.5, 1.5 - (glucose - 11.1) / 10);
-            }
+            if (glucose < OPTIMAL_LOW) return 1 + (glucose / OPTIMAL_LOW) * 1;
+            if (glucose <= OPTIMAL_HIGH) return 3;
+            if (glucose <= 11.1) return 3 - (glucose - OPTIMAL_HIGH) / 3.3 * 1.5;
+            return Math.max(0.5, 1.5 - (glucose - 11.1) / 10);
         }
         
         function updateLaneUI(playerId, glucose, state) {
@@ -320,20 +527,14 @@
             if (distanceEl) distanceEl.textContent = `${Math.floor(state.distance)} m`;
             
             const floater = document.getElementById(`floater-${playerId}`);
-            if (floater) {
-                floater.style.top = `${state.y}px`;
-            }
+            if (floater) floater.style.top = `${state.y}px`;
             
             const lane = document.getElementById(`lane-${playerId}`);
             if (lane) {
                 lane.classList.remove('slow', 'danger', 'low');
-                if (glucose < OPTIMAL_LOW) {
-                    lane.classList.add('low');
-                } else if (glucose > 11.1) {
-                    lane.classList.add('danger');
-                } else if (glucose > OPTIMAL_HIGH) {
-                    lane.classList.add('slow');
-                }
+                if (glucose < OPTIMAL_LOW) lane.classList.add('low');
+                else if (glucose > 11.1) lane.classList.add('danger');
+                else if (glucose > OPTIMAL_HIGH) lane.classList.add('slow');
             }
         }
         
@@ -342,15 +543,10 @@
                 const glucose = gameState[player.id]?.glucose || 5.6;
                 
                 let spawnChance;
-                if (glucose < OPTIMAL_LOW) {
-                    spawnChance = 0.3;
-                } else if (glucose <= OPTIMAL_HIGH) {
-                    spawnChance = 0.7;
-                } else if (glucose <= 11.1) {
-                    spawnChance = 0.4;
-                } else {
-                    spawnChance = 0.2;
-                }
+                if (glucose < OPTIMAL_LOW) spawnChance = 0.3;
+                else if (glucose <= OPTIMAL_HIGH) spawnChance = 0.7;
+                else if (glucose <= 11.1) spawnChance = 0.4;
+                else spawnChance = 0.2;
                 
                 if (Math.random() > spawnChance) return;
                 
@@ -360,10 +556,7 @@
                 
                 for (const c of COLLECTIBLES) {
                     rand -= c.weight;
-                    if (rand <= 0) {
-                        selected = c;
-                        break;
-                    }
+                    if (rand <= 0) { selected = c; break; }
                 }
                 
                 const lane = document.getElementById(`lane-${player.id}`);
@@ -402,7 +595,6 @@
             
             collectibles[playerId] = collectibles[playerId].filter(c => {
                 c.x -= speed * 3;
-                
                 const el = document.getElementById(`collectible-${c.id}`);
                 
                 const dx = Math.abs(c.x - floaterX);
@@ -410,7 +602,6 @@
                 
                 if (dx < 40 && dy < 40) {
                     state.score += c.points;
-                    
                     if (el) {
                         el.classList.add('collected');
                         createCollectEffect(playerId, c.x, c.y, `+${c.points}`);
@@ -419,9 +610,7 @@
                     return false;
                 }
                 
-                if (el) {
-                    el.style.left = `${c.x}px`;
-                }
+                if (el) el.style.left = `${c.x}px`;
                 
                 if (c.x < -50) {
                     if (el) el.remove();
@@ -449,9 +638,7 @@
         function updateChartData() {
             if (!glucoseChart) return;
             const chartData = {};
-            players.forEach(p => {
-                chartData[p.id] = gameState[p.id]?.glucose || 5.6;
-            });
+            players.forEach(p => { chartData[p.id] = gameState[p.id]?.glucose || 5.6; });
             glucoseChart.addDataPoint(chartData);
         }
         
@@ -485,7 +672,6 @@
             if (mode === 'live') {
                 statusDot.classList.remove('error');
                 statusText.textContent = '加载历史数据...';
-                
                 if (glucoseChart) {
                     const loaded = await glucoseChart.loadHistoryFromAPI();
                     statusText.textContent = loaded ? '实时模式' : '历史数据加载失败';
@@ -504,13 +690,7 @@
         
         function resetGame() {
             players.forEach(p => {
-                gameState[p.id] = {
-                    y: LANE_HEIGHT / 2,
-                    score: 0,
-                    distance: 0,
-                    glucose: 5.6
-                };
-                
+                gameState[p.id] = { y: LANE_HEIGHT / 2, score: 0, distance: 0, glucose: 5.6 };
                 collectibles[p.id] = [];
                 const container = document.getElementById(`collectibles-${p.id}`);
                 if (container) container.innerHTML = '';
@@ -534,6 +714,7 @@
         async function logout() {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
+                localStorage.removeItem('pk_player_id');
                 window.location.href = '/login.html';
             } catch (e) {
                 console.error('登出失败:', e);
@@ -541,7 +722,6 @@
             }
         }
         
-        // 暴露 currentUser 给 danmaku.js 使用
         window.getCurrentUser = () => currentUser;
         
         // ========== 启动 ==========
