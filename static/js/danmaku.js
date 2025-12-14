@@ -31,33 +31,13 @@ const DanmakuSystem = {
         loopTimer: null,         // 循环播放定时器
         loopIndex: 0,            // 当前循环到第几条
         isLooping: localStorage.getItem('danmaku_loop') === 'true',  // 是否循环播放
-        username: '',  // 延迟初始化
-    },
-    
-    /**
-     * 获取默认用户名（优先使用登录用户）
-     */
-    getDefaultUsername() {
-        // 1. 优先使用登录用户（总是覆盖 localStorage）
-        if (typeof window.getCurrentUser === 'function') {
-            const loginUser = window.getCurrentUser();
-            if (loginUser) {
-                // 同步更新 localStorage
-                localStorage.setItem('danmaku_username', loginUser);
-                return loginUser;
-            }
-        }
-        // 2. 其次使用 localStorage 保存的
-        return localStorage.getItem('danmaku_username') || '';
+        username: localStorage.getItem('danmaku_username') || '',
     },
     
     /**
      * 初始化弹幕系统
      */
     init() {
-        // 初始化用户名
-        this.state.username = this.getDefaultUsername();
-        
         this.createStyles();
         this.createUI();
         this.bindEvents();
@@ -757,20 +737,32 @@ const DanmakuSystem = {
         this.state.username = username;
         localStorage.setItem('danmaku_username', username);
         
-        // 🚀 立即显示弹幕（乐观更新，不等服务器响应）
-        const tempComment = {
+        // 创建评论对象
+        const newComment = {
             id: Date.now(),
             username: username,
             content: content,
             avatar: username[0].toUpperCase(),
-            created_at: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+            created_at: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }),
+            timestamp: new Date().toISOString()
         };
-        this.showDanmaku(tempComment);
         
-        // 立即清空输入并恢复按钮状态
+        // 🚀 立即添加到本地列表并显示
+        this.state.comments.push(newComment);
+        this.state.lastCommentId = newComment.id;
+        this.renderCommentList();
+        this.showDanmaku(newComment);
+        
+        // 清空输入
         contentInput.value = '';
         
-        // 后台异步发送到服务器（不阻塞 UI）
+        // 暂停循环播放（如果开启的话）
+        const wasLooping = this.state.isLooping;
+        if (wasLooping) {
+            this.stopLoop();
+        }
+        
+        // 后台异步发送到服务器
         fetch('/api/comments', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -779,19 +771,25 @@ const DanmakuSystem = {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // 添加到列表（用服务器返回的正式数据）
-                // 避免重复：检查是否已经存在
-                if (!this.state.comments.find(c => c.id === data.comment.id)) {
-                    this.state.comments.push(data.comment);
+                // 用服务器返回的 ID 更新本地评论
+                const localComment = this.state.comments.find(c => c.id === newComment.id);
+                if (localComment) {
+                    localComment.id = data.comment.id;
                     this.state.lastCommentId = data.comment.id;
-                    this.renderCommentList();
                 }
+                console.log('✅ 评论已保存到服务器');
             } else {
                 console.error('保存评论失败:', data.error);
             }
         })
         .catch(error => {
             console.error('发送评论失败:', error);
+        })
+        .finally(() => {
+            // 恢复循环播放
+            if (wasLooping) {
+                setTimeout(() => this.startLoop(), 500);
+            }
         });
     },
     
@@ -852,23 +850,9 @@ const DanmakuSystem = {
     }
 };
 
-// 页面加载完成后自动初始化（延迟等待登录用户信息）
-function initDanmaku() {
-    // 等待 getCurrentUser 准备好
-    const waitForUser = () => {
-        if (typeof window.getCurrentUser === 'function' && window.getCurrentUser()) {
-            DanmakuSystem.init();
-        } else {
-            // 最多等待 2 秒，之后无论如何都初始化
-            setTimeout(() => DanmakuSystem.init(), 100);
-        }
-    };
-    
-    setTimeout(waitForUser, 500);
-}
-
+// 页面加载完成后自动初始化
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDanmaku);
+    document.addEventListener('DOMContentLoaded', () => DanmakuSystem.init());
 } else {
-    initDanmaku();
+    DanmakuSystem.init();
 }
