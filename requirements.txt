@@ -1,16 +1,16 @@
 # Flask 核心
-flask>=2.0.0
+flask>=3.0.0,<4.0.0
 python-dotenv>=1.0.0
 gunicorn>=21.0.0
 
 # Dexcom API
-pydexcom>=0.2.0
+pydexcom>=0.3.0
 
-# Passkey 认证 (WebAuthn)
-webauthn>=2.0.0
+# Passkey 认证 (WebAuthn) - 锁定版本避免破坏性变化
+webauthn==2.7.0
 
-# 密码加密
-cryptography>=41.0.0
+# 密码加密 - webauthn 2.7.0 需要 cryptography>=43.0.0
+cryptography>=43.0.3,<44.0.0
 
 # 系统 Keyring 存储（Mac/Windows 自动可用，Linux 服务器会自动回退到加密文件）
-keyring>=24.0.0
+keyring>=24.0.0,<25.0.0

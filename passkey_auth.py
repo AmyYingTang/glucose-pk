@@ -31,6 +31,7 @@ from webauthn.helpers.structs import (
     AuthenticationCredential,
     AuthenticatorAttachment,
     AttestationConveyancePreference,
+    AuthenticatorTransport,
 )
 
 # ==================== 配置 ====================
@@ -346,6 +347,8 @@ def start_authentication(username: str = None) -> dict:
     开始 Passkey 登录流程
     username: 可选，如果提供则只允许该用户登录
     """
+    print(f"🔑 开始 Passkey 登录: username={username}")
+    
     challenge = secrets.token_bytes(32)
     
     # 准备 allowCredentials
@@ -357,10 +360,12 @@ def start_authentication(username: str = None) -> dict:
         if not user.get("credentials"):
             raise ValueError(f"用户 '{username}' 没有注册 Passkey，请先注册或使用密码登录")
         
+        print(f"   找到用户，有 {len(user.get('credentials', []))} 个 Passkey")
+        
         allow_credentials = [
             PublicKeyCredentialDescriptor(
                 id=base64url_to_bytes(c["credential_id"]),
-                transports=["internal", "hybrid"]  # 增加传输方式选项
+                transports=[AuthenticatorTransport.INTERNAL, AuthenticatorTransport.HYBRID]
             )
             for c in user["credentials"]
         ]
@@ -368,13 +373,22 @@ def start_authentication(username: str = None) -> dict:
         # 无用户名登录（发现式登录）
         allow_credentials = []
     
-    options = generate_authentication_options(
-        rp_id=RP_ID,
-        challenge=challenge,
-        allow_credentials=allow_credentials,
-        user_verification=UserVerificationRequirement.PREFERRED,
-        timeout=60000,
-    )
+    print(f"   RP_ID: {RP_ID}")
+    
+    try:
+        options = generate_authentication_options(
+            rp_id=RP_ID,
+            challenge=challenge,
+            allow_credentials=allow_credentials,
+            user_verification=UserVerificationRequirement.PREFERRED,
+            timeout=60000,
+        )
+        print(f"   ✅ generate_authentication_options 成功")
+    except Exception as e:
+        print(f"   ❌ generate_authentication_options 失败: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     # 保存挑战
     session_id = secrets.token_urlsafe(16)
@@ -384,13 +398,22 @@ def start_authentication(username: str = None) -> dict:
     }
     
     # 转换为字典，兼容不同版本的 options_to_json
-    result = options_to_json(options)
-    if isinstance(result, str):
-        response = json.loads(result)
-    else:
-        response = result  # 已经是字典
+    try:
+        result = options_to_json(options)
+        if isinstance(result, str):
+            response = json.loads(result)
+        else:
+            response = result  # 已经是字典
+        print(f"   ✅ options_to_json 成功")
+    except Exception as e:
+        print(f"   ❌ options_to_json 失败: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
     
     response["session_id"] = session_id  # 返回 session ID
+    
+    print(f"   ✅ 登录选项生成成功，session_id: {session_id}")
     
     return response
 
@@ -435,16 +458,33 @@ def complete_authentication(credential_json: dict, session_id: str, username: st
     try:
         # 将字典转换为 AuthenticationCredential 对象
         # 兼容不同版本的 webauthn
+        auth_credential = None
         try:
             # 尝试 Pydantic v2 方法
             auth_credential = AuthenticationCredential.model_validate_json(json.dumps(credential_json))
+            print(f"✅ 使用 Pydantic v2 解析凭据成功")
         except AttributeError:
             try:
                 # 尝试 Pydantic v1 方法
                 auth_credential = AuthenticationCredential.parse_raw(json.dumps(credential_json))
+                print(f"✅ 使用 Pydantic v1 解析凭据成功")
             except AttributeError:
                 # 如果都不行，尝试直接使用字典
                 auth_credential = credential_json
+                print(f"⚠️ 直接使用字典作为凭据")
+        except Exception as parse_error:
+            print(f"❌ Pydantic v2 解析失败: {parse_error}")
+            try:
+                auth_credential = AuthenticationCredential.parse_raw(json.dumps(credential_json))
+                print(f"✅ 回退到 Pydantic v1 解析成功")
+            except Exception as parse_error2:
+                print(f"❌ Pydantic v1 也失败: {parse_error2}")
+                auth_credential = credential_json
+        
+        print(f"🔐 验证参数:")
+        print(f"   RP_ID: {RP_ID}")
+        print(f"   ORIGIN: {ORIGIN}")
+        print(f"   凭据类型: {type(auth_credential)}")
         
         verification = verify_authentication_response(
             credential=auth_credential,
@@ -455,6 +495,9 @@ def complete_authentication(credential_json: dict, session_id: str, username: st
             credential_current_sign_count=credential["sign_count"],
         )
     except Exception as e:
+        print(f"❌ 验证异常详情: {type(e).__name__}: {e}")
+        import traceback
+        traceback.print_exc()
         raise ValueError(f"Passkey 验证失败: {e}")
     
     # 更新 sign_count（防止重放攻击），兼容不同的属性名
