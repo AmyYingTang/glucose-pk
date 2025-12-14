@@ -71,7 +71,7 @@ class GlucoseAPI {
             
             // 检查是否 401 未授权
             if (response.status === 401) {
-                console.warn('未登录，请先登录');
+                // 静默处理，不刷屏
                 return { success: false, error: '未登录' };
             }
             
@@ -93,7 +93,7 @@ class GlucoseAPI {
             }
             return { success: false, error: 'API 返回失败' };
         } catch (e) {
-            console.error('获取实时数据失败:', e);
+            // 网络错误时静默处理，不打印到控制台
             return { success: false, error: e.message };
         }
     }

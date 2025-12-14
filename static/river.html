@@ -20,6 +20,14 @@
             </button>
         </div>
     </div>
+    
+    <!-- 帮助弹窗 -->
+    <div class="help-modal hidden" id="help-modal" onclick="hideHelp(event)">
+        <div class="help-modal-content" onclick="event.stopPropagation()">
+            <button class="help-close" onclick="hideHelp()">&times;</button>
+            <div id="help-content"></div>
+        </div>
+    </div>
 
     <div class="user-bar">
         <span id="user-info"></span>
@@ -61,7 +69,7 @@
     <div class="checkin-section">
         <div class="checkin-container">
             <div class="checkin-header">
-                <h4>📋 今日打卡</h4>
+                <h4>📋 今日打卡 <span class="help-icon" onclick="showHelp('checkin')">?</span></h4>
                 <span class="checkin-date" id="checkin-date"></span>
             </div>
             <div class="checkin-buttons" id="checkin-buttons"></div>
@@ -73,7 +81,7 @@
     <div class="week-scores-section">
         <div class="week-scores-container">
             <div class="week-scores-header">
-                <h4>📊 最近 15 天 TIR (Time in Range)</h4>
+                <h4>📊 最近 15 天 TIR (Time in Range) <span class="help-icon" onclick="showHelp('tir')">?</span></h4>
                 <span class="week-info" id="week-info"></span>
             </div>
             <div class="score-cards" id="score-cards"></div>
@@ -122,7 +130,7 @@
         const OPTIMAL_HIGH = 7.8;
         const UPDATE_INTERVAL = 50;
         const COLLECTIBLE_SPAWN_INTERVAL = 1500;
-        const CHART_UPDATE_INTERVAL = 120000;
+        const CHART_UPDATE_INTERVAL = 180000;  // 3 分钟，与后台同步间隔匹配
         
         const COLLECTIBLES = [
             { emoji: '🦐', points: 1, weight: 5 },
@@ -637,9 +645,16 @@
         
         function updateChartData() {
             if (!glucoseChart) return;
-            const chartData = {};
-            players.forEach(p => { chartData[p.id] = gameState[p.id]?.glucose || 5.6; });
-            glucoseChart.addDataPoint(chartData);
+            
+            // 实时模式：重新加载历史数据
+            if (api.getMode() === 'live') {
+                glucoseChart.loadHistoryFromAPI();
+            } else {
+                // Demo 模式：追加当前数据点
+                const chartData = {};
+                players.forEach(p => { chartData[p.id] = gameState[p.id]?.glucose || 5.6; });
+                glucoseChart.addDataPoint(chartData);
+            }
         }
         
         // ========== 工具函数 ==========
@@ -652,6 +667,54 @@
         
         function toggleRules() {
             document.getElementById('rules-panel').classList.toggle('collapsed');
+        }
+        
+        // ========== 帮助弹窗 ==========
+        const HELP_CONTENT = {
+            tir: `
+                <h3>📊 TIR 是什么？</h3>
+                <p><strong>TIR (Time in Range)</strong> 是指血糖在目标范围内的时间比例。</p>
+                <h4>目标范围</h4>
+                <p>3.9 - 7.8 mmol/L (70 - 140 mg/dL)</p>
+                <h4>计分规则</h4>
+                <ul>
+                    <li>每天根据 TIR 百分比获得 <strong>0-70 分</strong></li>
+                    <li>例如：TIR 80% = 56 分 (80% × 70)</li>
+                    <li>加上打卡分数，每日满分 <strong>100 分</strong></li>
+                </ul>
+                <h4>15 天总分</h4>
+                <p>满分 1500 分 = 15 天 × 100 分/天</p>
+            `,
+            checkin: `
+                <h3>📋 打卡说明</h3>
+                <p>每天完成健康习惯打卡可以获得额外分数！</p>
+                <h4>打卡项目</h4>
+                <ul>
+                    <li>🏃 <strong>运动打卡</strong>：完成任意运动 → +15 分</li>
+                    <li>😴 <strong>睡眠打卡</strong>：保证充足睡眠 → +15 分</li>
+                </ul>
+                <h4>打卡规则</h4>
+                <ul>
+                    <li>每项每天只能打卡一次</li>
+                    <li>当天内可以取消打卡</li>
+                    <li>不能补打之前的日期</li>
+                    <li>游客模式无法打卡</li>
+                </ul>
+                <h4>每日满分</h4>
+                <p>TIR 70 分 + 运动 15 分 + 睡眠 15 分 = <strong>100 分</strong></p>
+            `
+        };
+        
+        function showHelp(type) {
+            const modal = document.getElementById('help-modal');
+            const content = document.getElementById('help-content');
+            content.innerHTML = HELP_CONTENT[type] || '<p>暂无帮助内容</p>';
+            modal.classList.remove('hidden');
+        }
+        
+        function hideHelp(event) {
+            if (event && event.target !== event.currentTarget) return;
+            document.getElementById('help-modal').classList.add('hidden');
         }
         
         // ========== 控制函数 ==========
