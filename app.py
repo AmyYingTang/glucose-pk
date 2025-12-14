@@ -168,14 +168,15 @@ def auth_login_complete():
         return jsonify({"error": "Passkey 未启用"}), 400
     
     data = request.get_json()
+    session_id = data.get("session_id")
     username = data.get("username")  # 可选
     credential = data.get("credential")
     
-    if not credential:
+    if not session_id or not credential:
         return jsonify({"error": "缺少凭据"}), 400
     
     try:
-        user_info = passkey_auth.complete_authentication(credential, username)
+        user_info = passkey_auth.complete_authentication(credential, session_id, username)
         
         # 设置登录 session
         session["logged_in"] = True
@@ -427,6 +428,183 @@ def get_demo_all():
         "timestamp": __import__('datetime').datetime.now().isoformat(),
         "players": players
     })
+
+# ==================== 密码认证路由 ====================
+
+@app.route('/api/auth/register/password', methods=['POST'])
+def auth_register_password():
+    """使用密码注册"""
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    display_name = data.get("display_name")
+    
+    if not username or not password:
+        return jsonify({"error": "缺少用户名或密码"}), 400
+    
+    try:
+        passkey_auth.register_with_password(username, password, display_name)
+        
+        # 自动登录
+        session["logged_in"] = True
+        session["username"] = username
+        session["display_name"] = display_name or username
+        session.permanent = True
+        
+        return jsonify({"success": True, "username": username})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/login/password', methods=['POST'])
+def auth_login_password():
+    """使用密码登录"""
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+    
+    if not username or not password:
+        return jsonify({"error": "缺少用户名或密码"}), 400
+    
+    try:
+        user_info = passkey_auth.login_with_password(username, password)
+        
+        # 设置登录 session
+        session["logged_in"] = True
+        session["username"] = user_info["username"]
+        session["display_name"] = user_info["display_name"]
+        session.permanent = True
+        
+        return jsonify({
+            "success": True,
+            "username": user_info["username"],
+            "display_name": user_info["display_name"],
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+# ==================== 账户管理路由 ====================
+
+@app.route('/api/auth/add-passkey/start', methods=['POST'])
+@login_required
+def add_passkey_start():
+    """为已登录用户添加新 Passkey"""
+    username = session.get('username')
+    device_name = request.get_json().get('device_name', '')
+    
+    try:
+        user = passkey_auth.get_user(username)
+        options = passkey_auth.start_registration(username, user['display_name'])
+        session['pending_device_name'] = device_name
+        return jsonify(options)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/add-passkey/complete', methods=['POST'])
+@login_required
+def add_passkey_complete():
+    """完成添加新 Passkey"""
+    username = session.get('username')
+    credential = request.get_json().get('credential')
+    device_name = session.pop('pending_device_name', '新设备')
+    
+    if not credential:
+        return jsonify({"error": "缺少凭据"}), 400
+    
+    try:
+        passkey_auth.complete_registration(username, credential, device_name)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/add-password', methods=['POST'])
+@login_required
+def add_password():
+    """为已登录用户添加密码"""
+    username = session.get('username')
+    password = request.get_json().get('password')
+    
+    if not password:
+        return jsonify({"error": "缺少密码"}), 400
+    
+    try:
+        passkey_auth.add_password_to_existing_user(username, password)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/change-password', methods=['POST'])
+@login_required
+def change_password_route():
+    """修改密码"""
+    username = session.get('username')
+    data = request.get_json()
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    
+    if not new_password:
+        return jsonify({"error": "缺少新密码"}), 400
+    
+    try:
+        passkey_auth.change_password(username, old_password or '', new_password)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/delete-credential', methods=['POST'])
+@login_required
+def delete_credential_route():
+    """删除 Passkey 凭据"""
+    username = session.get('username')
+    credential_id = request.get_json().get('credential_id')
+    
+    if not credential_id:
+        return jsonify({"error": "缺少凭据 ID"}), 400
+    
+    try:
+        if passkey_auth.delete_credential(username, credential_id):
+            return jsonify({"success": True})
+        else:
+            return jsonify({"error": "凭据不存在"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
+@app.route('/api/auth/user-info')
+@login_required
+def user_info():
+    """获取当前用户信息"""
+    username = session.get('username')
+    user = passkey_auth.get_user(username)
+    
+    if not user:
+        return jsonify({"error": "用户不存在"}), 404
+    
+    return jsonify({
+        "username": user["username"],
+        "display_name": user["display_name"],
+        "has_password": "password_hash" in user,
+        "credentials": [
+            {
+                "id": cred["credential_id"],
+                "device_name": cred.get("device_name", "未命名设备"),
+                "created_at": cred.get("created_at", "")
+            }
+            for cred in user.get("credentials", [])
+        ]
+    })
+
+
+@app.route('/account')
+@login_required
+def account_page():
+    """账户管理页面"""
+    return send_from_directory('static', 'account.html')
 
 
 if __name__ == '__main__':

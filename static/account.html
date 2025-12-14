@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>账户管理 - 血糖PK</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: white;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 28px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .device-list {
+            list-style: none;
+        }
+        
+        .device-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .device-info {
+            flex: 1;
+        }
+        
+        .device-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .device-meta {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: white;
+            font-size: 15px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: rgba(59, 130, 246, 0.5);
+        }
+        
+        input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .message.show {
+            display: block;
+        }
+        
+        .message.success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            color: #86efac;
+        }
+        
+        .message.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ 账户管理</h1>
+            <button class="btn btn-secondary" onclick="location.href='/'">返回首页</button>
+        </div>
+        
+        <div id="message" class="message"></div>
+        
+        <!-- 用户信息 -->
+        <div class="card">
+            <h2>👤 用户信息</h2>
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="username" readonly>
+            </div>
+            <div class="form-group">
+                <label>显示名称</label>
+                <input type="text" id="display-name" readonly>
+            </div>
+        </div>
+        
+        <!-- Passkey 管理 -->
+        <div class="card">
+            <h2>🔑 Passkey 管理</h2>
+            <ul id="passkey-list" class="device-list"></ul>
+            
+            <button class="btn btn-primary" onclick="showAddPasskeyForm()">
+                ➕ 添加新 Passkey
+            </button>
+            
+            <div id="add-passkey-form" style="display: none; margin-top: 16px;">
+                <div class="form-group">
+                    <label>设备名称</label>
+                    <input type="text" id="new-device-name" placeholder="例如：iPhone 14 Pro">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-primary btn-small" onclick="addPasskey()">创建 Passkey</button>
+                    <button class="btn btn-secondary btn-small" onclick="hideAddPasskeyForm()">取消</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 密码管理 -->
+        <div class="card">
+            <h2>🔐 密码管理</h2>
+            <p id="password-status" style="margin-bottom: 16px; color: rgba(255, 255, 255, 0.7);"></p>
+            
+            <div id="add-password-form" style="display: none;">
+                <div class="form-group">
+                    <label>新密码</label>
+                    <input type="password" id="new-password" placeholder="至少 6 个字符">
+                </div>
+                <button class="btn btn-primary" onclick="addPassword()">设置密码</button>
+            </div>
+            
+            <div id="change-password-form" style="display: none;">
+                <div class="form-group">
+                    <label>当前密码</label>
+                    <input type="password" id="old-password" placeholder="输入当前密码">
+                </div>
+                <div class="form-group">
+                    <label>新密码</label>
+                    <input type="password" id="new-password-change" placeholder="至少 6 个字符">
+                </div>
+                <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
+            </div>
+            
+            <button id="toggle-password-form" class="btn btn-secondary" onclick="togglePasswordForm()"></button>
+        </div>
+        
+        <!-- 危险区域 -->
+        <div class="card">
+            <h2>⚠️ 危险操作</h2>
+            <button class="btn btn-danger" onclick="logout()">退出登录</button>
+        </div>
+    </div>
+
+    <script>
+        let userInfo = null;
+        
+        // ==================== 初始化 ====================
+        
+        async function init() {
+            try {
+                const res = await fetch('/api/auth/user-info');
+                if (!res.ok) {
+                    location.href = '/login';
+                    return;
+                }
+                
+                userInfo = await res.json();
+                displayUserInfo();
+            } catch (e) {
+                console.error('加载用户信息失败:', e);
+                showMessage('加载失败: ' + e.message, 'error');
+            }
+        }
+        
+        function displayUserInfo() {
+            document.getElementById('username').value = userInfo.username;
+            document.getElementById('display-name').value = userInfo.display_name;
+            
+            // 显示 Passkeys
+            const passkeyList = document.getElementById('passkey-list');
+            if (userInfo.credentials.length === 0) {
+                passkeyList.innerHTML = '<div class="empty-state">暂无 Passkey</div>';
+            } else {
+                passkeyList.innerHTML = userInfo.credentials.map(cred => `
+                    <li class="device-item">
+                        <div class="device-info">
+                            <div class="device-name">📱 ${cred.device_name}</div>
+                            <div class="device-meta">创建于 ${new Date(cred.created_at).toLocaleDateString()}</div>
+                        </div>
+                        <button class="btn btn-danger btn-small" onclick="deletePasskey('${cred.id}')">删除</button>
+                    </li>
+                `).join('');
+            }
+            
+            // 显示密码状态
+            const passwordStatus = document.getElementById('password-status');
+            const addPasswordForm = document.getElementById('add-password-form');
+            const changePasswordForm = document.getElementById('change-password-form');
+            const toggleBtn = document.getElementById('toggle-password-form');
+            
+            if (userInfo.has_password) {
+                passwordStatus.textContent = '✅ 已设置密码';
+                addPasswordForm.style.display = 'none';
+                changePasswordForm.style.display = 'none';
+                toggleBtn.textContent = '修改密码';
+                toggleBtn.style.display = 'block';
+            } else {
+                passwordStatus.textContent = '❌ 未设置密码';
+                addPasswordForm.style.display = 'block';
+                changePasswordForm.style.display = 'none';
+                toggleBtn.style.display = 'none';
+            }
+        }
+        
+        // ==================== UI 辅助 ====================
+        
+        function showMessage(text, type = 'error') {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = `message ${type} show`;
+            setTimeout(() => msg.classList.remove('show'), 5000);
+        }
+        
+        function showAddPasskeyForm() {
+            document.getElementById('add-passkey-form').style.display = 'block';
+        }
+        
+        function hideAddPasskeyForm() {
+            document.getElementById('add-passkey-form').style.display = 'none';
+            document.getElementById('new-device-name').value = '';
+        }
+        
+        function togglePasswordForm() {
+            const form = document.getElementById('change-password-form');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // ==================== Passkey 辅助函数 ====================
+        
+        function bufferToBase64Url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (let i = 0; i < bytes.length; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+        }
+        
+        function base64UrlToBuffer(base64url) {
+            const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        // ==================== Passkey 操作 ====================
+        
+        async function addPasskey() {
+            const deviceName = document.getElementById('new-device-name').value.trim() || '新设备';
+            
+            try {
+                // 1. 开始添加
+                const startRes = await fetch('/api/auth/add-passkey/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_name: deviceName })
+                });
+                
+                if (!startRes.ok) {
+                    const err = await startRes.json();
+                    throw new Error(err.error || '开始失败');
+                }
+                
+                const options = await startRes.json();
+                
+                // 2. 创建凭据
+                options.challenge = base64UrlToBuffer(options.challenge);
+                options.user.id = base64UrlToBuffer(options.user.id);
+                if (options.excludeCredentials) {
+                    options.excludeCredentials = options.excludeCredentials.map(cred => ({
+                        ...cred,
+                        id: base64UrlToBuffer(cred.id)
+                    }));
+                }
+                
+                const credential = await navigator.credentials.create({ publicKey: options });
+                
+                // 3. 完成添加
+                const credentialJson = {
+                    id: bufferToBase64Url(credential.rawId),
+                    rawId: bufferToBase64Url(credential.rawId),
+                    type: credential.type,
+                    response: {
+                        clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                        attestationObject: bufferToBase64Url(credential.response.attestationObject),
+                    },
+                };
+                
+                const completeRes = await fetch('/api/auth/add-passkey/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ credential: credentialJson })
+                });
+                
+                if (!completeRes.ok) {
+                    const err = await completeRes.json();
+                    throw new Error(err.error || '添加失败');
+                }
+                
+                showMessage('✅ Passkey 添加成功！', 'success');
+                hideAddPasskeyForm();
+                setTimeout(() => location.reload(), 1000);
+                
+            } catch (e) {
+                console.error('添加 Passkey 失败:', e);
+                showMessage(e.message || '添加失败', 'error');
+            }
+        }
+        
+        async function deletePasskey(credentialId) {
+            if (!confirm('确定要删除这个 Passkey 吗？')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/auth/delete-credential', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ credential_id: credentialId })
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || '删除失败');
+                }
+                
+                showMessage('✅ Passkey 删除成功', 'success');
+                setTimeout(() => location.reload(), 1000);
+                
+            } catch (e) {
+                showMessage(e.message || '删除失败', 'error');
+            }
+        }
+        
+        // ==================== 密码操作 ====================
+        
+        async function addPassword() {
+            const password = document.getElementById('new-password').value;
+            
+            if (!password) {
+                showMessage('请输入密码', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showMessage('密码至少 6 个字符', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/auth/add-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || '设置失败');
+                }
+                
+                showMessage('✅ 密码设置成功', 'success');
+                setTimeout(() => location.reload(), 1000);
+                
+            } catch (e) {
+                showMessage(e.message || '设置失败', 'error');
+            }
+        }
+        
+        async function changePassword() {
+            const oldPassword = document.getElementById('old-password').value;
+            const newPassword = document.getElementById('new-password-change').value;
+            
+            if (!newPassword) {
+                showMessage('请输入新密码', 'error');
+                return;
+            }
+            
+            if (newPassword.length < 6) {
+                showMessage('新密码至少 6 个字符', 'error');
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/auth/change-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+                });
+                
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || '修改失败');
+                }
+                
+                showMessage('✅ 密码修改成功', 'success');
+                document.getElementById('old-password').value = '';
+                document.getElementById('new-password-change').value = '';
+                togglePasswordForm();
+                
+            } catch (e) {
+                showMessage(e.message || '修改失败', 'error');
+            }
+        }
+        
+        // ==================== 登出 ====================
+        
+        async function logout() {
+            if (!confirm('确定要退出登录吗？')) {
+                return;
+            }
+            
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                location.href = '/login';
+            } catch (e) {
+                console.error('登出失败:', e);
+            }
+        }
+        
+        // 启动
+        init();
+    </script>
+</body>
+</html>
