@@ -247,6 +247,12 @@
             gap: 8px;
             margin-bottom: 8px;
         }
+
+        .avatar-actions .btn {
+            flex: 1;
+            min-width: 100px;  
+            padding: 10px 16px;
+        }
         
         .avatar-hint {
             font-size: 12px;
@@ -308,10 +314,10 @@
                     <span class="avatar-placeholder" id="avatar-placeholder">👤</span>
                 </div>
                 <div class="avatar-actions">
-                    <label class="btn btn-secondary btn-small" style="cursor: pointer;">
+                    <button class="btn btn-secondary btn-small" onclick="document.getElementById('avatar-input').click()">
                         📷 上传头像
-                        <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(this)">
-                    </label>
+                    </button>
+                    <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(this)">
                     <button class="btn btn-secondary btn-small" onclick="deleteAvatar()" id="delete-avatar-btn" style="display: none;">
                         🗑️ 删除
                     </button>
