@@ -8,11 +8,17 @@
 # Passkey 用户数据
 .passkey_users.json
 
-# 用户血糖数据
-glucose_data/
 
-# 用户身份
-checkins.json
+# 忽略目录内的文件，但保留目录结构
+# 用户血糖数据
+glucose_data/*
+# 用户血糖仪数据
+data/cgm_devices/*
+
+# 保留 .gitkeep 文件（用于保持目录存在）
+!glucose_data/.gitkeep
+!data/cgm_devices/.gitkeep
+
 
 # ==================== Python ====================
 __pycache__/
