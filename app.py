@@ -8,7 +8,6 @@ import threading
 from datetime import datetime, timedelta
 from flask import Flask, jsonify, send_from_directory, request, session, redirect, url_for
 from dotenv import load_dotenv
-from cgm_api import cgm_bp
 
 # 导入数据获取模块
 from data_fetcher import (
@@ -49,10 +48,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
 app = Flask(__name__, static_folder=STATIC_DIR)
-
-# 注册设备管理 Blueprint
-app.register_blueprint(cgm_bp)
-print("✅ CGM 设备管理 API 已启用")
 
 # 注册评论 Blueprint
 if COMMENTS_ENABLED:
@@ -992,6 +987,8 @@ def user_info():
         "username": user["username"],
         "display_name": user["display_name"],
         "has_password": "password_hash" in user,
+        "avatar": user.get("avatar", ""),
+        "color": user.get("color", "#4CAF50"),
         "credentials": [
             {
                 "id": cred["credential_id"],

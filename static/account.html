@@ -208,6 +208,81 @@
         }
         
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* 头像设置 */
+        .avatar-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .avatar-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            margin-bottom: 12px;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .avatar-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .avatar-placeholder {
+            font-size: 48px;
+        }
+        
+        .avatar-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .avatar-hint {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+        
+        /* 颜色选择器 */
+        .color-picker-inline {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .color-options {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .color-option-inline {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .color-option-inline:hover {
+            transform: scale(1.1);
+        }
+        
+        .color-option-inline.selected {
+            border-color: white;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -225,6 +300,25 @@
         <!-- 用户信息 -->
         <div class="card">
             <h2>👤 用户信息</h2>
+            
+            <!-- 头像设置 -->
+            <div class="avatar-section">
+                <div class="avatar-preview" id="avatar-preview">
+                    <img src="" alt="头像" id="avatar-img" style="display: none;">
+                    <span class="avatar-placeholder" id="avatar-placeholder">👤</span>
+                </div>
+                <div class="avatar-actions">
+                    <label class="btn btn-secondary btn-small" style="cursor: pointer;">
+                        📷 上传头像
+                        <input type="file" id="avatar-input" accept="image/*" style="display: none;" onchange="uploadAvatar(this)">
+                    </label>
+                    <button class="btn btn-secondary btn-small" onclick="deleteAvatar()" id="delete-avatar-btn" style="display: none;">
+                        🗑️ 删除
+                    </button>
+                </div>
+                <div class="avatar-hint">支持 JPG/PNG/GIF/WebP，最大 2MB</div>
+            </div>
+            
             <div class="form-group">
                 <label>用户名</label>
                 <input type="text" id="username" readonly>
@@ -232,6 +326,15 @@
             <div class="form-group">
                 <label>显示名称</label>
                 <input type="text" id="display-name" readonly>
+            </div>
+            
+            <!-- 颜色设置 -->
+            <div class="form-group">
+                <label>我的颜色（用于图表）</label>
+                <div class="color-picker-inline">
+                    <div class="color-options" id="user-color-picker"></div>
+                    <input type="color" id="custom-color" style="display: none;">
+                </div>
             </div>
         </div>
         
@@ -325,16 +428,6 @@
                 <input type="text" id="device-name" placeholder="例如：我的 Dexcom G7">
             </div>
             
-            <div class="form-group">
-                <label>选择头像</label>
-                <div class="avatar-picker" id="avatar-picker"></div>
-            </div>
-            
-            <div class="form-group">
-                <label>选择颜色</label>
-                <div class="color-picker" id="color-picker"></div>
-            </div>
-            
             <div id="test-result" style="margin-bottom: 16px;"></div>
             
             <div class="btn-group">
@@ -350,12 +443,10 @@
     
     <script>
         // ==================== 配置 ====================
-        const AVATARS = ['🩸', '💉', '📊', '🎯', '⭐', '🌟', '💫', '🔥', '❤️', '💚', '💙', '🧡'];
         const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#FF5722', '#795548'];
         
         let supportedDevices = [];
-        let selectedAvatar = AVATARS[0];
-        let selectedColor = COLORS[0];
+        let userColor = COLORS[0];
         let credentialsValid = false;
         
         // ==================== 初始化 ====================
@@ -365,7 +456,7 @@
             await loadDevices();
             await loadPasskeys();
             await loadSupportedDevices();
-            initPickers();
+            initColorPicker();
         }
         
         async function loadUserInfo() {
@@ -382,6 +473,21 @@
                 const userInfo = await res.json();
                 document.getElementById('username').value = userInfo.username;
                 document.getElementById('display-name').value = userInfo.display_name;
+                
+                // 加载头像
+                if (userInfo.avatar) {
+                    document.getElementById('avatar-img').src = userInfo.avatar;
+                    document.getElementById('avatar-img').style.display = 'block';
+                    document.getElementById('avatar-placeholder').style.display = 'none';
+                    document.getElementById('delete-avatar-btn').style.display = 'block';
+                } else {
+                    document.getElementById('avatar-img').style.display = 'none';
+                    document.getElementById('avatar-placeholder').style.display = 'block';
+                    document.getElementById('delete-avatar-btn').style.display = 'none';
+                }
+                
+                // 加载颜色
+                userColor = userInfo.color || COLORS[0];
                 
                 // 密码状态
                 const passwordStatus = document.getElementById('password-status');
@@ -424,8 +530,8 @@
                     <li class="device-item ${device.is_default ? 'default' : ''}">
                         <div class="device-info">
                             <div class="device-header">
-                                <div class="device-avatar" style="color: ${device.display?.color || '#666'}">
-                                    ${device.display?.avatar || '🩸'}
+                                <div class="device-avatar">
+                                    ${device.type === 'dexcom' ? '📱' : device.type === 'libre' ? '💉' : '📊'}
                                 </div>
                                 <div>
                                     <div class="device-name">
@@ -504,18 +610,94 @@
             }
         }
         
-        function initPickers() {
-            // 头像选择器
-            const avatarPicker = document.getElementById('avatar-picker');
-            avatarPicker.innerHTML = AVATARS.map(a => 
-                `<div class="avatar-option ${a === selectedAvatar ? 'selected' : ''}" onclick="selectAvatar('${a}')">${a}</div>`
-            ).join('');
-            
-            // 颜色选择器
-            const colorPicker = document.getElementById('color-picker');
+        function initColorPicker() {
+            // 用户颜色选择器
+            const colorPicker = document.getElementById('user-color-picker');
             colorPicker.innerHTML = COLORS.map(c => 
-                `<div class="color-option ${c === selectedColor ? 'selected' : ''}" style="background: ${c}" onclick="selectColor('${c}')"></div>`
+                `<div class="color-option-inline ${c === userColor ? 'selected' : ''}" style="background: ${c}" onclick="selectUserColor('${c}')"></div>`
             ).join('');
+        }
+        
+        function selectUserColor(color) {
+            userColor = color;
+            document.querySelectorAll('.color-option-inline').forEach(el => {
+                el.classList.toggle('selected', el.style.background === color);
+            });
+            
+            // 保存到服务器
+            fetch('/api/cgm/color', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ color })
+            }).then(res => res.json()).then(result => {
+                if (result.success) {
+                    showMessage('颜色已更新', 'success');
+                }
+            }).catch(e => console.error('更新颜色失败:', e));
+        }
+        
+        // ==================== 头像上传 ====================
+        
+        async function uploadAvatar(input) {
+            if (!input.files || !input.files[0]) return;
+            
+            const file = input.files[0];
+            
+            // 检查文件大小
+            if (file.size > 2 * 1024 * 1024) {
+                showMessage('文件太大，最大 2MB', 'error');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('avatar', file);
+            
+            showMessage('上传中...', 'success');
+            
+            try {
+                const res = await fetch('/api/cgm/avatar', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await res.json();
+                
+                if (result.success) {
+                    // 更新预览
+                    document.getElementById('avatar-img').src = result.avatar + '?t=' + Date.now();
+                    document.getElementById('avatar-img').style.display = 'block';
+                    document.getElementById('avatar-placeholder').style.display = 'none';
+                    document.getElementById('delete-avatar-btn').style.display = 'block';
+                    showMessage('头像上传成功', 'success');
+                } else {
+                    showMessage(result.error || '上传失败', 'error');
+                }
+            } catch (e) {
+                showMessage('上传失败: ' + e.message, 'error');
+            }
+            
+            // 清空 input
+            input.value = '';
+        }
+        
+        async function deleteAvatar() {
+            if (!confirm('确定要删除头像吗？')) return;
+            
+            try {
+                const res = await fetch('/api/cgm/avatar', { method: 'DELETE' });
+                const result = await res.json();
+                
+                if (result.success) {
+                    document.getElementById('avatar-img').style.display = 'none';
+                    document.getElementById('avatar-placeholder').style.display = 'block';
+                    document.getElementById('delete-avatar-btn').style.display = 'none';
+                    showMessage('头像已删除', 'success');
+                } else {
+                    showMessage(result.error || '删除失败', 'error');
+                }
+            } catch (e) {
+                showMessage('删除失败: ' + e.message, 'error');
+            }
         }
         
         // ==================== 设备管理 ====================
@@ -576,20 +758,6 @@
             credentialsValid = false;
             document.getElementById('save-device-btn').disabled = true;
             document.getElementById('test-result').innerHTML = '';
-        }
-        
-        function selectAvatar(avatar) {
-            selectedAvatar = avatar;
-            document.querySelectorAll('.avatar-option').forEach(el => {
-                el.classList.toggle('selected', el.textContent === avatar);
-            });
-        }
-        
-        function selectColor(color) {
-            selectedColor = color;
-            document.querySelectorAll('.color-option').forEach(el => {
-                el.classList.toggle('selected', el.style.background === color);
-            });
         }
         
         function getCredentials() {
@@ -664,9 +832,7 @@
                     body: JSON.stringify({
                         type,
                         credentials,
-                        name: name || undefined,
-                        avatar: selectedAvatar,
-                        color: selectedColor
+                        name: name || undefined
                     })
                 });
                 

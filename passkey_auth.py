@@ -112,7 +112,9 @@ def get_all_users() -> list:
             "display_name": u["display_name"],
             "credential_count": len(u.get("credentials", [])),
             "has_password": "password_hash" in u,
-            "created_at": u.get("created_at", "")
+            "created_at": u.get("created_at", ""),
+            "avatar": u.get("avatar", ""),
+            "color": u.get("color", "#4CAF50"),
         }
         for u in users.values()
     ]
@@ -121,6 +123,42 @@ def get_all_users() -> list:
 def has_any_user() -> bool:
     """检查是否有任何用户"""
     return len(_load_users()) > 0
+
+
+def update_user_avatar(username: str, avatar_path: str) -> bool:
+    """更新用户头像路径"""
+    user = get_user(username)
+    if not user:
+        return False
+    user["avatar"] = avatar_path
+    save_user(user)
+    return True
+
+
+def update_user_color(username: str, color: str) -> bool:
+    """更新用户颜色"""
+    user = get_user(username)
+    if not user:
+        return False
+    user["color"] = color
+    save_user(user)
+    return True
+
+
+def get_user_avatar(username: str) -> str:
+    """获取用户头像路径，没有则返回默认"""
+    user = get_user(username)
+    if user and user.get("avatar"):
+        return user["avatar"]
+    return ""  # 空字符串表示使用默认
+
+
+def get_user_color(username: str) -> str:
+    """获取用户颜色"""
+    user = get_user(username)
+    if user and user.get("color"):
+        return user["color"]
+    return "#4CAF50"  # 默认绿色
 
 
 # ==================== 传统密码认证 ====================

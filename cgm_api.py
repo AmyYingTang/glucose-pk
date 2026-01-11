@@ -260,7 +260,7 @@ def get_players():
     players = [
         {
             "id": device["player_id"],
-            "name": device["device_name"],
+            "name": device["display_name"],
             "avatar": device["avatar"],
             "color": device["color"],
             "type": "player",
@@ -274,7 +274,7 @@ def get_players():
     players.append({
         "id": "guest",
         "name": "观战模式",
-        "avatar": "👀",
+        "avatar": "/static/images/guest.png",
         "color": "#888888",
         "type": "guest"
     })
@@ -282,6 +282,127 @@ def get_players():
     return jsonify({
         "success": True,
         "players": players
+    })
+
+
+# ==================== 用户头像 ====================
+
+@cgm_bp.route('/avatar', methods=['POST'])
+@_require_login
+def upload_avatar():
+    """上传用户头像"""
+    import os
+    from werkzeug.utils import secure_filename
+    from passkey_auth import update_user_avatar
+    
+    username = session.get("username")
+    
+    if 'avatar' not in request.files:
+        return jsonify({"success": False, "error": "没有上传文件"}), 400
+    
+    file = request.files['avatar']
+    
+    if file.filename == '':
+        return jsonify({"success": False, "error": "没有选择文件"}), 400
+    
+    # 检查文件类型
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+    ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
+    
+    if ext not in allowed_extensions:
+        return jsonify({
+            "success": False, 
+            "error": f"不支持的文件格式，请使用: {', '.join(allowed_extensions)}"
+        }), 400
+    
+    # 检查文件大小（限制 2MB）
+    file.seek(0, 2)  # 移到文件末尾
+    size = file.tell()
+    file.seek(0)  # 移回开头
+    
+    if size > 2 * 1024 * 1024:
+        return jsonify({"success": False, "error": "文件太大，最大 2MB"}), 400
+    
+    # 确保上传目录存在
+    upload_dir = os.path.join('static', 'uploads', 'avatars')
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # 保存文件（用用户名命名，覆盖旧头像）
+    filename = f"{secure_filename(username)}.{ext}"
+    filepath = os.path.join(upload_dir, filename)
+    
+    # 删除旧头像（可能是不同扩展名）
+    for old_ext in allowed_extensions:
+        old_file = os.path.join(upload_dir, f"{secure_filename(username)}.{old_ext}")
+        if os.path.exists(old_file) and old_file != filepath:
+            try:
+                os.remove(old_file)
+            except:
+                pass
+    
+    file.save(filepath)
+    
+    # 更新用户数据
+    avatar_url = f"/static/uploads/avatars/{filename}"
+    update_user_avatar(username, avatar_url)
+    
+    return jsonify({
+        "success": True,
+        "avatar": avatar_url,
+        "message": "头像上传成功"
+    })
+
+
+@cgm_bp.route('/avatar', methods=['DELETE'])
+@_require_login
+def delete_avatar():
+    """删除用户头像"""
+    import os
+    from passkey_auth import update_user_avatar, get_user_avatar
+    
+    username = session.get("username")
+    
+    # 获取当前头像路径
+    avatar_path = get_user_avatar(username)
+    
+    if avatar_path and avatar_path.startswith('/static/uploads/avatars/'):
+        # 删除文件
+        file_path = avatar_path.lstrip('/')
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except:
+                pass
+    
+    # 清空头像设置
+    update_user_avatar(username, "")
+    
+    return jsonify({
+        "success": True,
+        "message": "头像已删除"
+    })
+
+
+@cgm_bp.route('/color', methods=['POST'])
+@_require_login
+def update_color():
+    """更新用户颜色"""
+    from passkey_auth import update_user_color
+    
+    username = session.get("username")
+    data = request.get_json() or {}
+    color = data.get("color", "").strip()
+    
+    # 简单验证颜色格式
+    if not color or not color.startswith('#') or len(color) not in [4, 7]:
+        return jsonify({"success": False, "error": "无效的颜色格式"}), 400
+    
+    update_user_color(username, color)
+    
+    return jsonify({
+        "success": True,
+        "color": color,
+        "message": "颜色已更新"
     })
 
 

@@ -447,11 +447,13 @@ class CGMManager:
                 "device_id": "dexcom_001",
                 "device_name": "Amy's Dexcom",
                 "device_type": "dexcom",
-                "avatar": "🩸",
+                "avatar": "/static/uploads/avatars/amy.jpg",
                 "color": "#4CAF50",
                 "player_id": "amy_dexcom_001"  # 用于 API 的唯一标识
             }
         """
+        from passkey_auth import get_user_avatar, get_user_color, get_user
+        
         all_devices = []
         
         # 遍历所有用户配置文件
@@ -462,15 +464,22 @@ class CGMManager:
                 config = self._load_user_config(username)
                 devices = config.get("devices", [])
                 
+                # 获取用户级别的头像和颜色
+                user = get_user(username)
+                user_avatar = get_user_avatar(username)
+                user_color = get_user_color(username)
+                display_name = user.get("display_name", username) if user else username
+                
                 for device in devices:
                     if device.get("is_active", True):
                         all_devices.append({
                             "username": username,
+                            "display_name": display_name,
                             "device_id": device["id"],
                             "device_name": device["name"],
                             "device_type": device["type"],
-                            "avatar": device.get("display", {}).get("avatar", "🩸"),
-                            "color": device.get("display", {}).get("color", "#666"),
+                            "avatar": user_avatar or "/static/images/default-avatar.png",
+                            "color": user_color,
                             "player_id": f"{username}_{device['id']}"
                         })
             except Exception as e:
