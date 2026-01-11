@@ -5,11 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>账户管理 - 血糖PK</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -19,21 +15,19 @@
             color: white;
         }
         
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
+        .container { max-width: 800px; margin: 0 auto; }
         
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 30px;
+            flex-wrap: wrap;
+            gap: 10px;
         }
         
-        h1 {
-            font-size: 28px;
-        }
+        h1 { font-size: 28px; }
+        .header-buttons { display: flex; gap: 10px; }
         
         .btn {
             padding: 10px 20px;
@@ -45,26 +39,13 @@
             transition: all 0.3s;
         }
         
-        .btn-primary {
-            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-            color: white;
-        }
-        
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        
-        .btn-danger {
-            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-            color: white;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
+        .btn-primary { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; }
+        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: white; border: 1px solid rgba(255, 255, 255, 0.2); }
+        .btn-success { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; }
+        .btn-danger { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
         
         .card {
             background: rgba(255, 255, 255, 0.1);
@@ -82,9 +63,7 @@
             gap: 10px;
         }
         
-        .device-list {
-            list-style: none;
-        }
+        .device-list { list-style: none; }
         
         .device-item {
             background: rgba(255, 255, 255, 0.05);
@@ -95,34 +74,47 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
         }
         
-        .device-info {
-            flex: 1;
+        .device-item.default { border-color: #22c55e; background: rgba(34, 197, 94, 0.1); }
+        
+        .device-info { flex: 1; min-width: 200px; }
+        
+        .device-header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+        
+        .device-avatar {
+            font-size: 28px;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
         }
         
-        .device-name {
+        .device-name { font-weight: 600; font-size: 16px; }
+        .device-type { font-size: 13px; color: rgba(255, 255, 255, 0.6); }
+        .device-meta { font-size: 13px; color: rgba(255, 255, 255, 0.5); }
+        
+        .device-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
             font-weight: 600;
-            margin-bottom: 4px;
+            margin-left: 8px;
         }
         
-        .device-meta {
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-        }
+        .badge-default { background: #22c55e; color: white; }
+        .device-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         
-        .form-group {
-            margin-bottom: 16px;
-        }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
         
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        
-        input {
+        input, select {
             width: 100%;
             padding: 12px;
             background: rgba(255, 255, 255, 0.1);
@@ -132,14 +124,9 @@
             font-size: 15px;
         }
         
-        input:focus {
-            outline: none;
-            border-color: rgba(59, 130, 246, 0.5);
-        }
-        
-        input::placeholder {
-            color: rgba(255, 255, 255, 0.4);
-        }
+        input:focus, select:focus { outline: none; border-color: rgba(59, 130, 246, 0.5); }
+        input::placeholder { color: rgba(255, 255, 255, 0.4); }
+        select option { background: #1a1a2e; color: white; }
         
         .message {
             padding: 12px 16px;
@@ -148,45 +135,89 @@
             display: none;
         }
         
-        .message.show {
-            display: block;
+        .message.show { display: block; }
+        .message.success { background: rgba(34, 197, 94, 0.2); border: 1px solid rgba(34, 197, 94, 0.4); color: #86efac; }
+        .message.error { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5; }
+        
+        .empty-state { text-align: center; padding: 40px 20px; color: rgba(255, 255, 255, 0.5); }
+        .empty-state p { margin-bottom: 20px; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 16px; }
+        
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
         }
         
-        .message.success {
-            background: rgba(34, 197, 94, 0.2);
-            border: 1px solid rgba(34, 197, 94, 0.4);
-            color: #86efac;
+        .modal.show { display: flex; }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         
-        .message.error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            color: #fca5a5;
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { font-size: 20px; }
+        .modal-close { background: none; border: none; color: white; font-size: 24px; cursor: pointer; }
+        
+        .avatar-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        
+        .avatar-option {
+            width: 44px; height: 44px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid transparent;
+            border-radius: 50%;
+            cursor: pointer;
         }
         
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: rgba(255, 255, 255, 0.5);
+        .avatar-option.selected { border-color: #3b82f6; background: rgba(59, 130, 246, 0.2); }
+        
+        .color-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        
+        .color-option {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            border: 3px solid transparent;
+            cursor: pointer;
         }
         
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 16px;
+        .color-option.selected { border-color: white; }
+        
+        .loading {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
         }
         
-        .btn-small {
-            padding: 8px 16px;
-            font-size: 13px;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>⚙️ 账户管理</h1>
-            <button class="btn btn-secondary" onclick="location.href='/'">返回首页</button>
+            <div class="header-buttons">
+                <button class="btn btn-secondary" onclick="location.href='/'">返回首页</button>
+                <button class="btn btn-danger" onclick="logout()">退出登录</button>
+            </div>
         </div>
         
         <div id="message" class="message"></div>
@@ -204,19 +235,33 @@
             </div>
         </div>
         
+        <!-- CGM 设备管理 -->
+        <div class="card">
+            <h2>📊 CGM 设备</h2>
+            <p style="color: rgba(255,255,255,0.6); margin-bottom: 16px; font-size: 14px;">
+                添加你的血糖监测设备来参与 PK。没有设备的用户可以以观战模式参与。
+            </p>
+            
+            <ul id="device-list" class="device-list"></ul>
+            
+            <button class="btn btn-primary" onclick="showAddDeviceModal()">
+                ➕ 添加 CGM 设备
+            </button>
+        </div>
+        
         <!-- Passkey 管理 -->
         <div class="card">
             <h2>🔑 Passkey 管理</h2>
             <ul id="passkey-list" class="device-list"></ul>
             
-            <button class="btn btn-primary" onclick="showAddPasskeyForm()">
+            <button class="btn btn-secondary" onclick="showAddPasskeyForm()">
                 ➕ 添加新 Passkey
             </button>
             
             <div id="add-passkey-form" style="display: none; margin-top: 16px;">
                 <div class="form-group">
                     <label>设备名称</label>
-                    <input type="text" id="new-device-name" placeholder="例如：iPhone 14 Pro">
+                    <input type="text" id="new-passkey-name" placeholder="例如：iPhone 14 Pro">
                 </div>
                 <div class="btn-group">
                     <button class="btn btn-primary btn-small" onclick="addPasskey()">创建 Passkey</button>
@@ -241,7 +286,7 @@
             <div id="change-password-form" style="display: none;">
                 <div class="form-group">
                     <label>当前密码</label>
-                    <input type="password" id="old-password" placeholder="输入当前密码">
+                    <input type="password" id="old-password">
                 </div>
                 <div class="form-group">
                     <label>新密码</label>
@@ -250,78 +295,458 @@
                 <button class="btn btn-primary" onclick="changePassword()">修改密码</button>
             </div>
             
-            <button id="toggle-password-form" class="btn btn-secondary" onclick="togglePasswordForm()"></button>
-        </div>
-        
-        <!-- 危险区域 -->
-        <div class="card">
-            <h2>⚠️ 危险操作</h2>
-            <button class="btn btn-danger" onclick="logout()">退出登录</button>
+            <button id="toggle-password-form" class="btn btn-secondary" style="display: none; margin-top: 12px;" onclick="togglePasswordForm()">
+                修改密码
+            </button>
         </div>
     </div>
-
+    
+    <!-- 添加设备 Modal -->
+    <div id="add-device-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>➕ 添加 CGM 设备</h3>
+                <button class="modal-close" onclick="hideAddDeviceModal()">&times;</button>
+            </div>
+            
+            <div class="form-group">
+                <label>设备类型</label>
+                <select id="device-type" onchange="onDeviceTypeChange()">
+                    <option value="">请选择...</option>
+                </select>
+            </div>
+            
+            <div id="device-type-description" style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 16px;"></div>
+            
+            <div id="credentials-form"></div>
+            
+            <div class="form-group">
+                <label>设备名称（可选）</label>
+                <input type="text" id="device-name" placeholder="例如：我的 Dexcom G7">
+            </div>
+            
+            <div class="form-group">
+                <label>选择头像</label>
+                <div class="avatar-picker" id="avatar-picker"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>选择颜色</label>
+                <div class="color-picker" id="color-picker"></div>
+            </div>
+            
+            <div id="test-result" style="margin-bottom: 16px;"></div>
+            
+            <div class="btn-group">
+                <button class="btn btn-secondary" id="test-btn" onclick="testCredentials()">
+                    测试连接
+                </button>
+                <button class="btn btn-success" id="save-device-btn" onclick="saveDevice()" disabled>
+                    保存设备
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <script>
-        let userInfo = null;
+        // ==================== 配置 ====================
+        const AVATARS = ['🩸', '💉', '📊', '🎯', '⭐', '🌟', '💫', '🔥', '❤️', '💚', '💙', '🧡'];
+        const COLORS = ['#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#9C27B0', '#00BCD4', '#FF5722', '#795548'];
+        
+        let supportedDevices = [];
+        let selectedAvatar = AVATARS[0];
+        let selectedColor = COLORS[0];
+        let credentialsValid = false;
         
         // ==================== 初始化 ====================
         
         async function init() {
+            await loadUserInfo();
+            await loadDevices();
+            await loadPasskeys();
+            await loadSupportedDevices();
+            initPickers();
+        }
+        
+        async function loadUserInfo() {
             try {
                 const res = await fetch('/api/auth/user-info');
                 if (!res.ok) {
-                    location.href = '/login';
+                    if (res.status === 401) {
+                        location.href = '/login';
+                        return;
+                    }
+                    throw new Error('加载失败');
+                }
+                
+                const userInfo = await res.json();
+                document.getElementById('username').value = userInfo.username;
+                document.getElementById('display-name').value = userInfo.display_name;
+                
+                // 密码状态
+                const passwordStatus = document.getElementById('password-status');
+                const addPasswordForm = document.getElementById('add-password-form');
+                const changePasswordForm = document.getElementById('change-password-form');
+                const toggleBtn = document.getElementById('toggle-password-form');
+                
+                if (userInfo.has_password) {
+                    passwordStatus.textContent = '✅ 已设置密码';
+                    addPasswordForm.style.display = 'none';
+                    toggleBtn.style.display = 'block';
+                } else {
+                    passwordStatus.textContent = '❌ 未设置密码';
+                    addPasswordForm.style.display = 'block';
+                    toggleBtn.style.display = 'none';
+                }
+            } catch (e) {
+                console.error('加载用户信息失败:', e);
+            }
+        }
+        
+        async function loadDevices() {
+            try {
+                const res = await fetch('/api/cgm/devices');
+                const data = await res.json();
+                
+                const list = document.getElementById('device-list');
+                
+                if (!data.devices || data.devices.length === 0) {
+                    list.innerHTML = `
+                        <div class="empty-state">
+                            <p>还没有添加 CGM 设备</p>
+                            <p style="font-size: 13px;">添加设备后可以参与血糖 PK！</p>
+                        </div>
+                    `;
                     return;
                 }
                 
-                userInfo = await res.json();
-                displayUserInfo();
-            } catch (e) {
-                console.error('加载用户信息失败:', e);
-                showMessage('加载失败: ' + e.message, 'error');
-            }
-        }
-        
-        function displayUserInfo() {
-            document.getElementById('username').value = userInfo.username;
-            document.getElementById('display-name').value = userInfo.display_name;
-            
-            // 显示 Passkeys
-            const passkeyList = document.getElementById('passkey-list');
-            if (userInfo.credentials.length === 0) {
-                passkeyList.innerHTML = '<div class="empty-state">暂无 Passkey</div>';
-            } else {
-                passkeyList.innerHTML = userInfo.credentials.map(cred => `
-                    <li class="device-item">
+                list.innerHTML = data.devices.map(device => `
+                    <li class="device-item ${device.is_default ? 'default' : ''}">
                         <div class="device-info">
-                            <div class="device-name">📱 ${cred.device_name}</div>
-                            <div class="device-meta">创建于 ${new Date(cred.created_at).toLocaleDateString()}</div>
+                            <div class="device-header">
+                                <div class="device-avatar" style="color: ${device.display?.color || '#666'}">
+                                    ${device.display?.avatar || '🩸'}
+                                </div>
+                                <div>
+                                    <div class="device-name">
+                                        ${device.name}
+                                        ${device.is_default ? '<span class="device-badge badge-default">默认</span>' : ''}
+                                    </div>
+                                    <div class="device-type">${getDeviceTypeName(device.type)}</div>
+                                </div>
+                            </div>
+                            <div class="device-meta">
+                                添加于 ${formatDate(device.added_at)}
+                            </div>
                         </div>
-                        <button class="btn btn-danger btn-small" onclick="deletePasskey('${cred.id}')">删除</button>
+                        <div class="device-actions">
+                            <button class="btn btn-secondary btn-small" onclick="testDevice('${device.id}')">
+                                测试
+                            </button>
+                            ${!device.is_default ? `
+                                <button class="btn btn-success btn-small" onclick="setDefault('${device.id}')">
+                                    设为默认
+                                </button>
+                            ` : ''}
+                            <button class="btn btn-danger btn-small" onclick="deleteDevice('${device.id}', '${device.name}')">
+                                删除
+                            </button>
+                        </div>
                     </li>
                 `).join('');
-            }
-            
-            // 显示密码状态
-            const passwordStatus = document.getElementById('password-status');
-            const addPasswordForm = document.getElementById('add-password-form');
-            const changePasswordForm = document.getElementById('change-password-form');
-            const toggleBtn = document.getElementById('toggle-password-form');
-            
-            if (userInfo.has_password) {
-                passwordStatus.textContent = '✅ 已设置密码';
-                addPasswordForm.style.display = 'none';
-                changePasswordForm.style.display = 'none';
-                toggleBtn.textContent = '修改密码';
-                toggleBtn.style.display = 'block';
-            } else {
-                passwordStatus.textContent = '❌ 未设置密码';
-                addPasswordForm.style.display = 'block';
-                changePasswordForm.style.display = 'none';
-                toggleBtn.style.display = 'none';
+            } catch (e) {
+                console.error('加载设备失败:', e);
             }
         }
         
-        // ==================== UI 辅助 ====================
+        async function loadPasskeys() {
+            try {
+                const res = await fetch('/api/auth/user-info');
+                const userInfo = await res.json();
+                
+                const list = document.getElementById('passkey-list');
+                const credentials = userInfo.credentials || [];
+                
+                if (credentials.length === 0) {
+                    list.innerHTML = '<div class="empty-state"><p>还没有 Passkey</p></div>';
+                    return;
+                }
+                
+                list.innerHTML = credentials.map(cred => `
+                    <li class="device-item">
+                        <div class="device-info">
+                            <div class="device-name">📱 ${cred.device_name || '未命名设备'}</div>
+                            <div class="device-meta">ID: ${cred.id.substring(0, 16)}...</div>
+                        </div>
+                        <div class="device-actions">
+                            <button class="btn btn-danger btn-small" onclick="deletePasskey('${cred.id}')">
+                                删除
+                            </button>
+                        </div>
+                    </li>
+                `).join('');
+            } catch (e) {
+                console.error('加载 Passkey 失败:', e);
+            }
+        }
+        
+        async function loadSupportedDevices() {
+            try {
+                const res = await fetch('/api/cgm/supported-devices');
+                const data = await res.json();
+                supportedDevices = data.devices || [];
+                
+                const select = document.getElementById('device-type');
+                select.innerHTML = '<option value="">请选择设备类型...</option>' +
+                    supportedDevices.map(d => `<option value="${d.type}">${d.name}</option>`).join('');
+            } catch (e) {
+                console.error('加载支持的设备类型失败:', e);
+            }
+        }
+        
+        function initPickers() {
+            // 头像选择器
+            const avatarPicker = document.getElementById('avatar-picker');
+            avatarPicker.innerHTML = AVATARS.map(a => 
+                `<div class="avatar-option ${a === selectedAvatar ? 'selected' : ''}" onclick="selectAvatar('${a}')">${a}</div>`
+            ).join('');
+            
+            // 颜色选择器
+            const colorPicker = document.getElementById('color-picker');
+            colorPicker.innerHTML = COLORS.map(c => 
+                `<div class="color-option ${c === selectedColor ? 'selected' : ''}" style="background: ${c}" onclick="selectColor('${c}')"></div>`
+            ).join('');
+        }
+        
+        // ==================== 设备管理 ====================
+        
+        function showAddDeviceModal() {
+            document.getElementById('add-device-modal').classList.add('show');
+            credentialsValid = false;
+            document.getElementById('save-device-btn').disabled = true;
+            document.getElementById('test-result').innerHTML = '';
+        }
+        
+        function hideAddDeviceModal() {
+            document.getElementById('add-device-modal').classList.remove('show');
+            // 重置表单
+            document.getElementById('device-type').value = '';
+            document.getElementById('credentials-form').innerHTML = '';
+            document.getElementById('device-type-description').innerHTML = '';
+            document.getElementById('device-name').value = '';
+        }
+        
+        function onDeviceTypeChange() {
+            const type = document.getElementById('device-type').value;
+            const device = supportedDevices.find(d => d.type === type);
+            
+            const descEl = document.getElementById('device-type-description');
+            const formEl = document.getElementById('credentials-form');
+            
+            if (!device) {
+                descEl.innerHTML = '';
+                formEl.innerHTML = '';
+                return;
+            }
+            
+            descEl.textContent = device.description;
+            
+            // 生成凭证表单
+            formEl.innerHTML = device.fields.map(field => {
+                if (field.type === 'select') {
+                    return `
+                        <div class="form-group">
+                            <label>${field.label}</label>
+                            <select id="cred-${field.name}">
+                                ${field.options.map(opt => 
+                                    `<option value="${opt.value}" ${opt.value === field.default ? 'selected' : ''}>${opt.label}</option>`
+                                ).join('')}
+                            </select>
+                        </div>
+                    `;
+                }
+                return `
+                    <div class="form-group">
+                        <label>${field.label}${field.required ? ' *' : ''}</label>
+                        <input type="${field.type}" id="cred-${field.name}" ${field.required ? 'required' : ''}>
+                    </div>
+                `;
+            }).join('');
+            
+            credentialsValid = false;
+            document.getElementById('save-device-btn').disabled = true;
+            document.getElementById('test-result').innerHTML = '';
+        }
+        
+        function selectAvatar(avatar) {
+            selectedAvatar = avatar;
+            document.querySelectorAll('.avatar-option').forEach(el => {
+                el.classList.toggle('selected', el.textContent === avatar);
+            });
+        }
+        
+        function selectColor(color) {
+            selectedColor = color;
+            document.querySelectorAll('.color-option').forEach(el => {
+                el.classList.toggle('selected', el.style.background === color);
+            });
+        }
+        
+        function getCredentials() {
+            const type = document.getElementById('device-type').value;
+            const device = supportedDevices.find(d => d.type === type);
+            if (!device) return null;
+            
+            const credentials = {};
+            for (const field of device.fields) {
+                const el = document.getElementById(`cred-${field.name}`);
+                if (el) credentials[field.name] = el.value;
+            }
+            return credentials;
+        }
+        
+        async function testCredentials() {
+            const type = document.getElementById('device-type').value;
+            const credentials = getCredentials();
+            
+            if (!type || !credentials) {
+                showMessage('请选择设备类型并填写凭证', 'error');
+                return;
+            }
+            
+            const testBtn = document.getElementById('test-btn');
+            const resultEl = document.getElementById('test-result');
+            
+            testBtn.disabled = true;
+            testBtn.innerHTML = '<span class="loading"></span>测试中...';
+            resultEl.innerHTML = '';
+            
+            try {
+                const res = await fetch('/api/cgm/test-credentials', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, credentials })
+                });
+                
+                const result = await res.json();
+                
+                if (result.success) {
+                    resultEl.innerHTML = `<div class="message success show">${result.message}</div>`;
+                    credentialsValid = true;
+                    document.getElementById('save-device-btn').disabled = false;
+                } else {
+                    resultEl.innerHTML = `<div class="message error show">${result.message || '连接失败'}</div>`;
+                    credentialsValid = false;
+                    document.getElementById('save-device-btn').disabled = true;
+                }
+            } catch (e) {
+                resultEl.innerHTML = `<div class="message error show">测试失败: ${e.message}</div>`;
+            } finally {
+                testBtn.disabled = false;
+                testBtn.textContent = '测试连接';
+            }
+        }
+        
+        async function saveDevice() {
+            if (!credentialsValid) {
+                showMessage('请先测试连接', 'error');
+                return;
+            }
+            
+            const type = document.getElementById('device-type').value;
+            const credentials = getCredentials();
+            const name = document.getElementById('device-name').value.trim();
+            
+            try {
+                const res = await fetch('/api/cgm/devices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type,
+                        credentials,
+                        name: name || undefined,
+                        avatar: selectedAvatar,
+                        color: selectedColor
+                    })
+                });
+                
+                const result = await res.json();
+                
+                if (result.success) {
+                    showMessage('设备添加成功！', 'success');
+                    hideAddDeviceModal();
+                    await loadDevices();
+                } else {
+                    showMessage(result.error || '添加失败', 'error');
+                }
+            } catch (e) {
+                showMessage('添加失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function testDevice(deviceId) {
+            showMessage('测试中...', 'success');
+            
+            try {
+                const res = await fetch(`/api/cgm/devices/${deviceId}/test`, { method: 'POST' });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showMessage(result.message, 'success');
+                } else {
+                    showMessage(result.message || '连接失败', 'error');
+                }
+            } catch (e) {
+                showMessage('测试失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function setDefault(deviceId) {
+            try {
+                const res = await fetch(`/api/cgm/devices/${deviceId}/default`, { method: 'POST' });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showMessage('已设为默认设备', 'success');
+                    await loadDevices();
+                } else {
+                    showMessage(result.error || '设置失败', 'error');
+                }
+            } catch (e) {
+                showMessage('设置失败: ' + e.message, 'error');
+            }
+        }
+        
+        async function deleteDevice(deviceId, deviceName) {
+            if (!confirm(`确定要删除设备 "${deviceName}" 吗？`)) return;
+            
+            try {
+                const res = await fetch(`/api/cgm/devices/${deviceId}`, { method: 'DELETE' });
+                const result = await res.json();
+                
+                if (result.success) {
+                    showMessage('设备已删除', 'success');
+                    await loadDevices();
+                } else {
+                    showMessage(result.error || '删除失败', 'error');
+                }
+            } catch (e) {
+                showMessage('删除失败: ' + e.message, 'error');
+            }
+        }
+        
+        // ==================== 辅助函数 ====================
+        
+        function getDeviceTypeName(type) {
+            const device = supportedDevices.find(d => d.type === type);
+            return device ? device.name : type;
+        }
+        
+        function formatDate(isoString) {
+            if (!isoString) return '未知';
+            const date = new Date(isoString);
+            return date.toLocaleDateString('zh-CN');
+        }
         
         function showMessage(text, type = 'error') {
             const msg = document.getElementById('message');
@@ -330,13 +755,14 @@
             setTimeout(() => msg.classList.remove('show'), 5000);
         }
         
+        // ==================== Passkey 相关 ====================
+        
         function showAddPasskeyForm() {
             document.getElementById('add-passkey-form').style.display = 'block';
         }
         
         function hideAddPasskeyForm() {
             document.getElementById('add-passkey-form').style.display = 'none';
-            document.getElementById('new-device-name').value = '';
         }
         
         function togglePasswordForm() {
@@ -344,14 +770,10 @@
             form.style.display = form.style.display === 'none' ? 'block' : 'none';
         }
         
-        // ==================== Passkey 辅助函数 ====================
-        
         function bufferToBase64Url(buffer) {
             const bytes = new Uint8Array(buffer);
             let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-                binary += String.fromCharCode(bytes[i]);
-            }
+            for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
             return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
         }
         
@@ -359,45 +781,31 @@
             const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
             const binary = atob(base64);
             const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
-            }
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
             return bytes.buffer;
         }
         
-        // ==================== Passkey 操作 ====================
-        
         async function addPasskey() {
-            const deviceName = document.getElementById('new-device-name').value.trim() || '新设备';
+            const deviceName = document.getElementById('new-passkey-name').value.trim() || '新设备';
             
             try {
-                // 1. 开始添加
                 const startRes = await fetch('/api/auth/add-passkey/start', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ device_name: deviceName })
                 });
                 
-                if (!startRes.ok) {
-                    const err = await startRes.json();
-                    throw new Error(err.error || '开始失败');
-                }
+                if (!startRes.ok) throw new Error((await startRes.json()).error || '开始失败');
                 
                 const options = await startRes.json();
-                
-                // 2. 创建凭据
                 options.challenge = base64UrlToBuffer(options.challenge);
                 options.user.id = base64UrlToBuffer(options.user.id);
                 if (options.excludeCredentials) {
-                    options.excludeCredentials = options.excludeCredentials.map(cred => ({
-                        ...cred,
-                        id: base64UrlToBuffer(cred.id)
-                    }));
+                    options.excludeCredentials = options.excludeCredentials.map(c => ({...c, id: base64UrlToBuffer(c.id)}));
                 }
                 
                 const credential = await navigator.credentials.create({ publicKey: options });
                 
-                // 3. 完成添加
                 const credentialJson = {
                     id: bufferToBase64Url(credential.rawId),
                     rawId: bufferToBase64Url(credential.rawId),
@@ -414,25 +822,18 @@
                     body: JSON.stringify({ credential: credentialJson })
                 });
                 
-                if (!completeRes.ok) {
-                    const err = await completeRes.json();
-                    throw new Error(err.error || '添加失败');
-                }
+                if (!completeRes.ok) throw new Error((await completeRes.json()).error || '添加失败');
                 
-                showMessage('✅ Passkey 添加成功！', 'success');
+                showMessage('Passkey 添加成功！', 'success');
                 hideAddPasskeyForm();
-                setTimeout(() => location.reload(), 1000);
-                
+                await loadPasskeys();
             } catch (e) {
-                console.error('添加 Passkey 失败:', e);
                 showMessage(e.message || '添加失败', 'error');
             }
         }
         
         async function deletePasskey(credentialId) {
-            if (!confirm('确定要删除这个 Passkey 吗？')) {
-                return;
-            }
+            if (!confirm('确定要删除这个 Passkey 吗？')) return;
             
             try {
                 const res = await fetch('/api/auth/delete-credential', {
@@ -441,30 +842,18 @@
                     body: JSON.stringify({ credential_id: credentialId })
                 });
                 
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || '删除失败');
-                }
+                if (!res.ok) throw new Error((await res.json()).error || '删除失败');
                 
-                showMessage('✅ Passkey 删除成功', 'success');
-                setTimeout(() => location.reload(), 1000);
-                
+                showMessage('Passkey 已删除', 'success');
+                await loadPasskeys();
             } catch (e) {
                 showMessage(e.message || '删除失败', 'error');
             }
         }
         
-        // ==================== 密码操作 ====================
-        
         async function addPassword() {
             const password = document.getElementById('new-password').value;
-            
-            if (!password) {
-                showMessage('请输入密码', 'error');
-                return;
-            }
-            
-            if (password.length < 6) {
+            if (!password || password.length < 6) {
                 showMessage('密码至少 6 个字符', 'error');
                 return;
             }
@@ -476,14 +865,10 @@
                     body: JSON.stringify({ password })
                 });
                 
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || '设置失败');
-                }
+                if (!res.ok) throw new Error((await res.json()).error || '设置失败');
                 
-                showMessage('✅ 密码设置成功', 'success');
+                showMessage('密码设置成功', 'success');
                 setTimeout(() => location.reload(), 1000);
-                
             } catch (e) {
                 showMessage(e.message || '设置失败', 'error');
             }
@@ -493,12 +878,7 @@
             const oldPassword = document.getElementById('old-password').value;
             const newPassword = document.getElementById('new-password-change').value;
             
-            if (!newPassword) {
-                showMessage('请输入新密码', 'error');
-                return;
-            }
-            
-            if (newPassword.length < 6) {
+            if (!newPassword || newPassword.length < 6) {
                 showMessage('新密码至少 6 个字符', 'error');
                 return;
             }
@@ -510,34 +890,21 @@
                     body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
                 });
                 
-                if (!res.ok) {
-                    const err = await res.json();
-                    throw new Error(err.error || '修改失败');
-                }
+                if (!res.ok) throw new Error((await res.json()).error || '修改失败');
                 
-                showMessage('✅ 密码修改成功', 'success');
+                showMessage('密码修改成功', 'success');
                 document.getElementById('old-password').value = '';
                 document.getElementById('new-password-change').value = '';
                 togglePasswordForm();
-                
             } catch (e) {
                 showMessage(e.message || '修改失败', 'error');
             }
         }
         
-        // ==================== 登出 ====================
-        
         async function logout() {
-            if (!confirm('确定要退出登录吗？')) {
-                return;
-            }
-            
-            try {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                location.href = '/login';
-            } catch (e) {
-                console.error('登出失败:', e);
-            }
+            if (!confirm('确定要退出登录吗？')) return;
+            await fetch('/api/auth/logout', { method: 'POST' });
+            location.href = '/login';
         }
         
         // 启动
