@@ -30,12 +30,6 @@
         <a href="river.html" class="scene-link">🌊 漂流</a>
     </div>
     
-    <!-- 模式切换 -->
-    <div class="mode-toggle">
-        <button class="mode-btn active" id="btn-live" onclick="setMode('live')">🔴 实时</button>
-        <button class="mode-btn" id="btn-demo" onclick="setMode('demo')">🎮 Demo</button>
-    </div>
-    
     <!-- 可折叠游戏规则 -->
     <div class="rules-panel collapsed" id="rules-panel">
         <div class="rules-header" onclick="toggleRules()">
@@ -81,13 +75,6 @@
     </div>
     
     <!-- Demo 控制面板 -->
-    <div class="demo-panel visible" id="demo-panel">
-        <h3>🎮 Demo 模式 - 调整血糖值</h3>
-        <div id="demo-sliders">
-            <!-- 动态生成 -->
-        </div>
-    </div>
-    
     <!-- 控制按钮 -->
     <div class="controls">
         <button class="control-btn primary" onclick="resetGame()">🔄 重置游戏</button>
@@ -97,7 +84,7 @@
     <!-- 状态栏 -->
     <div class="status-bar">
         <div class="status-dot" id="status-dot"></div>
-        <span id="status-text">Demo 模式</span>
+        <span id="status-text">实时模式</span>
     </div>
 
     <script src="js/glucose-api.js"></script>
@@ -161,9 +148,9 @@
                 game.start();
             });
             
-            // 恢复保存的模式
-            const savedMode = api.getMode();
-            applyMode(savedMode);
+            // 强制使用实时模式
+            api.setMode('live');
+            applyMode('live');
             
             startGameLoop();
         }

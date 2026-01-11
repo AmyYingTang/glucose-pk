@@ -10,12 +10,15 @@
 
 
 # 忽略目录内的文件，但保留目录结构
+# 用户avatar数据
+static/uploads/avatars/*
 # 用户血糖数据
 glucose_data/*
 # 用户血糖仪数据
 data/cgm_devices/*
 
 # 保留 .gitkeep 文件（用于保持目录存在）
+!static/uploads/avatars/.gitkeep
 !glucose_data/.gitkeep
 !data/cgm_devices/.gitkeep
 

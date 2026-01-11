@@ -42,6 +42,14 @@ except ImportError:
     PASSKEY_ENABLED = False
     print("⚠️  Passkey 模块未找到，认证功能禁用")
 
+# 导入 CGM 设备管理 API
+try:
+    from cgm_api import cgm_bp
+    CGM_API_ENABLED = True
+except ImportError:
+    CGM_API_ENABLED = False
+    print("⚠️  CGM 设备管理模块未找到")
+
 load_dotenv()
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -53,6 +61,11 @@ app = Flask(__name__, static_folder=STATIC_DIR)
 if COMMENTS_ENABLED:
     app.register_blueprint(comments_bp)
     print("✅ 弹幕评论功能已启用")
+
+# 注册 CGM 设备管理 Blueprint
+if CGM_API_ENABLED:
+    app.register_blueprint(cgm_bp)
+    print("✅ CGM 设备管理 API 已启用")
 
 # Session 密钥（生产环境请使用环境变量）
 app.secret_key = os.getenv("FLASK_SECRET_KEY", os.urandom(32))

@@ -124,24 +124,24 @@ if not USERS:
     print("=" * 50)
     
     # 提供默认演示用户（无真实凭据）
-    USERS = {
-        "user1": {
-            "name": "演示用户1",
-            "username": "demo1",
-            "password": "demo",
-            "region": "ous",
-            "avatar": "images/avatar1.svg",
-            "color": "#0077BB"
-        },
-        "user2": {
-            "name": "演示用户2",
-            "username": "demo2",
-            "password": "demo",
-            "region": "ous",
-            "avatar": "images/avatar2.svg",
-            "color": "#EE7733"
-        },
-    }
+    # USERS = {
+    #     "user1": {
+    #         "name": "演示用户1",
+    #         "username": "demo1",
+    #         "password": "demo",
+    #         "region": "ous",
+    #         "avatar": "images/avatar1.svg",
+    #         "color": "#0077BB"
+    #     },
+    #     "user2": {
+    #         "name": "演示用户2",
+    #         "username": "demo2",
+    #         "password": "demo",
+    #         "region": "ous",
+    #         "avatar": "images/avatar2.svg",
+    #         "color": "#EE7733"
+    #     },
+    # }
 
 # 打印加载的用户（不显示敏感信息）
 print(f"✅ 已加载 {len(USERS)} 个用户: {', '.join(u['name'] for u in USERS.values())}")
