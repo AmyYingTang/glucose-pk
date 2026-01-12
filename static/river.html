@@ -174,7 +174,11 @@
                     const userInfo = await res.json();
 
                     document.querySelector('#user-info .user-name').textContent = `${currentUser}`;
-                    document.querySelector('#user-avatar').src = `${userInfo.avatar}`;
+                    if (userInfo.avatar) {
+                        document.querySelector('#user-avatar').src = userInfo.avatar;
+                    } else {
+                        document.querySelector('#user-avatar').style.display = 'none';
+                    }
                 }
             } catch (e) {
                 console.log('未登录或无法获取用户信息');
