@@ -29,8 +29,9 @@
         </div>
     </div>
 
-    <div class="user-bar">
-        <a href="/account" class="user-link" id="user-info">
+    <div class="user-bar">                
+        <a href="/account" class="user-link" id="user-info">  
+            <img id="user-avatar" class="calendar-player-avatar" src=""/>
             <span class="user-name"></span>
             <span class="settings-icon">⚙️</span>
         </a>
@@ -159,7 +160,21 @@
                 const authData = await authRes.json();
                 if (authData.logged_in) {
                     currentUser = authData.display_name || authData.username;
-                    document.querySelector('#user-info .user-name').textContent = `👤 ${currentUser}`;
+
+                    // get avatar
+                    const res = await fetch('/api/auth/user-info');
+                    if (!res.ok) {
+                        if (res.status === 401) {
+                            location.href = '/login';
+                            return;
+                        }
+                        throw new Error('加载失败');
+                    }
+                    
+                    const userInfo = await res.json();
+
+                    document.querySelector('#user-info .user-name').textContent = `${currentUser}`;
+                    document.querySelector('#user-avatar').src = `${userInfo.avatar}`;
                 }
             } catch (e) {
                 console.log('未登录或无法获取用户信息');
