@@ -84,8 +84,37 @@ class LibreProvider(BaseCGMProvider):
             self._ensure_authenticated()
             return True
         except Exception as e:
+            # 保存错误信息供 test_connection 使用
+            self._last_error = str(e)
             print(f"⚠️ Libre 认证失败: {e}")
+            import traceback
+            traceback.print_exc()
             return False
+    
+    def test_connection(self) -> dict:
+        """测试连接，返回详细错误信息"""
+        try:
+            self._ensure_authenticated()
+            reading = self.get_current_reading()
+            if reading:
+                return {
+                    "success": True,
+                    "message": f"连接成功！当前血糖: {reading.value} mmol/L",
+                    "current_reading": reading.to_dict()
+                }
+            else:
+                return {
+                    "success": True,
+                    "message": "连接成功，但暂无血糖数据",
+                    "current_reading": None
+                }
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return {
+                "success": False,
+                "message": f"连接失败: {str(e)}"
+            }
     
     def _convert_trend(self, trend_value) -> tuple:
         """
