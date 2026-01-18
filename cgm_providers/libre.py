@@ -10,6 +10,22 @@ from datetime import datetime
 from .base import BaseCGMProvider, CGMReading
 
 
+# 区域映射
+LIBRE_REGIONS = {
+    "us": "US",
+    "eu": "EU", 
+    "eu2": "EU2",
+    "ap": "AP",      # 亚太（中国用户使用）
+    "au": "AU",
+    "ae": "AE",
+    "ca": "CA",
+    "de": "DE",
+    "fr": "FR",
+    "jp": "JP",
+    "la": "LA",
+}
+
+
 class LibreProvider(BaseCGMProvider):
     """FreeStyle Libre Provider (通过 LibreLinkUp)"""
     
@@ -25,7 +41,7 @@ class LibreProvider(BaseCGMProvider):
         """获取或创建 LibreLinkUp 客户端"""
         if self._client is None:
             try:
-                from pylibrelinkup import PyLibreLinkUp
+                from pylibrelinkup import PyLibreLinkUp, APIUrl
             except ImportError:
                 raise ImportError(
                     "需要安装 pylibrelinkup 库: pip install pylibrelinkup"
@@ -33,11 +49,16 @@ class LibreProvider(BaseCGMProvider):
             
             email = self.credentials.get("username")
             password = self.credentials.get("password")
+            region = self.credentials.get("region", "ap").lower()  # 默认亚太
             
             if not email or not password:
                 raise ValueError("缺少 LibreLinkUp 邮箱或密码")
             
-            self._client = PyLibreLinkUp(email=email, password=password)
+            # 获取区域 URL
+            region_key = LIBRE_REGIONS.get(region, "AP")
+            api_url = getattr(APIUrl, region_key, APIUrl.AP)
+            
+            self._client = PyLibreLinkUp(email=email, password=password, api_url=api_url)
         
         return self._client
     

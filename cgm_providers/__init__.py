@@ -31,6 +31,18 @@ PROVIDER_TYPES = {
         'fields': [
             {'name': 'username', 'label': '邮箱', 'type': 'email', 'required': True},
             {'name': 'password', 'label': '密码', 'type': 'password', 'required': True},
+            {'name': 'region', 'label': '地区', 'type': 'select', 'required': False,
+             'options': [
+                 {'value': 'ap', 'label': '亚太（中国大陆）'},
+                 {'value': 'eu', 'label': '欧洲'},
+                 {'value': 'us', 'label': '美国'},
+                 {'value': 'au', 'label': '澳大利亚'},
+                 {'value': 'jp', 'label': '日本'},
+                 {'value': 'de', 'label': '德国'},
+                 {'value': 'fr', 'label': '法国'},
+                 {'value': 'ca', 'label': '加拿大'},
+             ],
+             'default': 'ap'}
         ]
     }
 }
